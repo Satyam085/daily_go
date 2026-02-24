@@ -749,7 +749,13 @@ el.nextFeederBtn.addEventListener("click", () => {
   autoSaveActiveFeeder();
   moveSubstation(1);
 });
-el.clearBtn.addEventListener("click", () => loadEntryToForm(selectedFeederCode));
+el.clearBtn.addEventListener("click", () => {
+  clearFormFields();
+  if (selectedFeederCode) {
+    entries.delete(selectedFeederCode);
+    persistSessionState();
+  }
+});
 el.generateBtn.addEventListener("click", generateScript);
 
 const runAutoBtn = document.getElementById("runAutoBtn");
