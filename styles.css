@@ -1,0 +1,276 @@
+:root {
+  --bg: #f4f6f1;
+  --bg-accent: radial-gradient(circle at 15% -10%, #dae8bf 0%, transparent 40%), radial-gradient(circle at 85% 0%, #c9e2d4 0%, transparent 35%);
+  --card: #ffffff;
+  --text: #1c2c24;
+  --muted: #5b6d63;
+  --line: #d6dfd6;
+  --primary: #1f7a5b;
+  --primary-2: #145642;
+  --shadow: 0 12px 24px rgba(24, 44, 35, 0.08);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Manrope, sans-serif;
+  color: var(--text);
+  background: var(--bg-accent), var(--bg);
+}
+
+.app {
+  width: min(960px, 100% - 1.2rem);
+  margin: 1rem auto 2rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.hero {
+  background: linear-gradient(135deg, #173d31, #245746);
+  color: #eff7f2;
+  border-radius: 18px;
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.hero h1 {
+  margin: 0.3rem 0;
+  font-size: clamp(1.2rem, 5vw, 1.9rem);
+}
+
+.eyebrow {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.sub {
+  margin: 0;
+  color: #d9eee5;
+  font-size: 0.92rem;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 0.9rem;
+  box-shadow: var(--shadow);
+}
+
+h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.grid {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.grid.two { grid-template-columns: 1fr 1fr; }
+.grid.three { grid-template-columns: 1fr 1fr 1fr; }
+.grid.one { grid-template-columns: 1fr; }
+
+label {
+  font-size: 0.85rem;
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+}
+
+input, select, textarea, button {
+  font: inherit;
+}
+
+input, select, textarea {
+  border: 1px solid #c6d5cb;
+  border-radius: 12px;
+  padding: 0.62rem 0.72rem;
+  background: #fff;
+  color: var(--text);
+}
+
+/* iOS Safari zooms focused inputs when font-size is below 16px */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea {
+    font-size: 16px;
+  }
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid #7fcead;
+  outline-offset: 1px;
+}
+
+details {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.65rem;
+  margin-top: 0.7rem;
+}
+
+summary {
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.actions {
+  margin-top: 0.8rem;
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.mini-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pill-wrap {
+  margin-top: 0.8rem;
+}
+
+.pill-label {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.pills {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.pill {
+  border: 1px solid #bfd1c5;
+  background: #f2f7f4;
+  color: #264839;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pill.active {
+  background: #1f7a5b;
+  color: #fff;
+  border-color: #1f7a5b;
+}
+
+button {
+  border: 0;
+  border-radius: 11px;
+  padding: 0.65rem 0.9rem;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+button.primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+button.primary:hover {
+  background: var(--primary-2);
+}
+
+button.ghost {
+  background: #e8f0eb;
+  color: #264839;
+}
+
+.row.between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.counts {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.entry-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.entry-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.65rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.entry-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.entry-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.entry-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tag {
+  font-size: 0.75rem;
+  background: #edf4ef;
+  color: #2a4b3b;
+  border-radius: 999px;
+  padding: 0.22rem 0.5rem;
+}
+
+.card-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.card-actions button {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+#generateStatus {
+  margin: 0.7rem 0 0;
+}
+
+@media (max-width: 720px) {
+  .grid.two, .grid.three, .grid.one {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    padding: 0.75rem;
+  }
+
+  .meta {
+    margin-top: 0.15rem;
+  }
+
+  .mini-actions button {
+    flex: 1;
+  }
+}

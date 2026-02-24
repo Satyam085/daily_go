@@ -1,0 +1,845 @@
+const MASTER_SCHEDULE_TSV = `322707\tBahej\tAG\tBhimpore\t08:00:00\t16:00:00\t0.02
+322704\tBhimpore\tJGY\tBhimpore\t00:00:00\t24:00:00\t0.02
+322706\tHathuka\tAG\tBhimpore\t08:00:00\t16:00:00\t0.02
+322702\tHill\tHTEX\tBhimpore\t00:00:00\t24:00:00\t0.02
+322701\tKhakhar\tAG\tBhimpore\t08:00:00\t16:00:00\t0.02
+322705\tKumbhiya\tAG\tBhimpore\t08:00:00\t16:00:00\t0.02
+322703\tRanveri\tJGY\tBhimpore\t00:00:00\t24:00:00\t0.02
+322708\tSankalp\tHTEX\tBhimpore\t00:00:00\t24:00:00\t0.02
+321106\tKamalchhod\tAG\tBorakhadi\t07:00:00\t15:00:00\t0.02
+329801\tDhodhiya\tAG\tDegama\t07:00:00\t15:00:00\t0.02
+329802\tKokanvad\tAG\tDegama\t07:00:00\t15:00:00\t0.02
+329803\tMadhuli\tJGY\tDegama\t00:00:00\t24:00:00\t0.02
+532802\tAndhatri\tJGY\tGodadha\t00:00:00\t24:00:00\t0.02
+532804\tDharampura\tAG\tGodadha\t07:00:00\t15:00:00\t0.02
+532803\tPahad\tAG\tGodadha\t07:00:00\t15:00:00\t0.02
+532801\tPatel\tJGY\tGodadha\t00:00:00\t24:00:00\t0.02
+388705\tDungari\tAG\tKelkui\t07:00:00\t15:00:00\t0.02
+388703\tGodaun\tJGY\tKelkui\t00:00:00\t24:00:00\t0.02
+388702\tNalotha\tAG\tKelkui\t07:00:00\t15:00:00\t0.02
+388701\tParshi\tAG\tKelkui\t07:00:00\t15:00:00\t0.02
+388704\tValmiki\tJGY\tKelkui\t00:00:00\t24:00:00\t0.02
+322205\tAmbach\tJGY\tRupvada\t00:00:00\t24:00:00\t0.02
+322203\tDegama\tJGY\tRupvada\t00:00:00\t24:00:00\t0.02
+322206\tGandhi\tAGSKY\tRupvada\t07:00:00\t15:00:00\t0.02
+322202\tKhanpur\tAGSKY\tRupvada\t07:00:00\t15:00:00\t0.02
+322208\tTad\tAG\tRupvada\t07:00:00\t15:00:00\t0.02
+102503\tBajipura\tAG\tValod\t07:00:00\t15:00:00\t0.02
+102502\tBavli\tAG\tValod\t07:00:00\t15:00:00\t0.02
+102512\tButwada\tJGY\tValod\t00:00:00\t24:00:00\t0.02
+\tDelwada\tJGY\tValod\t00:00:00\t24:00:00\t0.02
+102507\tNansad\tAG\tValod\t07:00:00\t15:00:00\t0.02
+102514\tPavran\tAG\tValod\t07:00:00\t15:00:00\t0.02
+102511\tRupvada\tAG\tValod\t07:00:00\t15:00:00\t0.02
+102508\tSiker\tAG\tValod\t07:00:00\t15:00:00\t0.02
+102504\tSumul\tJGY\tValod\t00:00:00\t24:00:00\t0.02
+102513\tSumul Cattle\tHTEX\tValod\t00:00:00\t24:00:00\t0.02
+102509\tTokarva\tAG\tValod\t07:00:00\t15:00:00\t0.02
+102501\tValod (T)\tJGY\tValod\t00:00:00\t24:00:00\t0.02
+102506\tVedchhi\tJGY\tValod\t00:00:00\t24:00:00\t0.02
+140202\tBuhari\tJGY\tVirpore\t00:00:00\t24:00:00\t0.02
+140206\tDadariya\tAG\tVirpore\t07:00:00\t15:00:00\t0.02
+140204\tVirpur\tAG\tVirpore\t07:00:00\t15:00:00\t0.02`;
+
+function parseMaster(tsv) {
+  return tsv
+    .trim()
+    .split("\n")
+    .map((line) => {
+      const cols = line.split("\t");
+      return {
+        code: (cols[0] || "").trim(),
+        feeder: (cols[1] || "").trim(),
+        category: (cols[2] || "").trim(),
+        substation: (cols[3] || "").trim(),
+        start: (cols[4] || "").trim(),
+        end: (cols[5] || "").trim(),
+        mw: (cols[6] || "0.02").trim() || "0.02",
+      };
+    })
+    .filter((f) => f.code);
+}
+
+const feederMaster = parseMaster(MASTER_SCHEDULE_TSV);
+const feederByCode = Object.fromEntries(feederMaster.map((f) => [f.code, f]));
+const entries = new Map();
+const substations = [...new Set(feederMaster.map((f) => f.substation))].sort();
+const API_BASE_URL = "https://dgvcl-backend-94310635710.asia-south1.run.app"; // Cloud Run URL
+const SESSION_STORAGE_KEY = "das_automation_session_v1";
+let activeSubstation = substations[0] || "";
+let visibleFeederCodes = [];
+let selectedFeederCode = "";
+let lastGeneratedScript = "";
+
+const el = {
+  substationSelect: document.getElementById("substationSelect"),
+  feederPills: document.getElementById("feederPills"),
+  selectedFeeder: document.getElementById("selectedFeeder"),
+  tt: document.getElementById("tt"),
+  ttReason: document.getElementById("ttReason"),
+  sfStart: document.getElementById("sfStart"),
+  sfEnd: document.getElementById("sfEnd"),
+  sfReason: document.getElementById("sfReason"),
+  esdStart: document.getElementById("esdStart"),
+  esdEnd: document.getElementById("esdEnd"),
+  esdReason: document.getElementById("esdReason"),
+  psdStart: document.getElementById("psdStart"),
+  psdEnd: document.getElementById("psdEnd"),
+  psdReason: document.getElementById("psdReason"),
+  prevFeederBtn: document.getElementById("prevFeederBtn"),
+  nextFeederBtn: document.getElementById("nextFeederBtn"),
+  clearBtn: document.getElementById("clearBtn"),
+  generateBtn: document.getElementById("generateBtn"),
+  generateStatus: document.getElementById("generateStatus"),
+};
+
+function getTodayLocalDate() {
+  const now = new Date();
+  const tzOffset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - tzOffset).toISOString().slice(0, 10);
+}
+
+function loadSessionStateForToday() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    if (parsed.date !== getTodayLocalDate()) {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch (err) {
+    return null;
+  }
+}
+
+function persistSessionState() {
+  try {
+    const byCode = {};
+    entries.forEach((value, code) => {
+      byCode[code] = value;
+    });
+    const snapshot = {
+      date: getTodayLocalDate(),
+      activeSubstation,
+      selectedFeederCode,
+      entries: byCode,
+    };
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(snapshot));
+  } catch (err) {
+    // Ignore storage exceptions.
+  }
+}
+
+function hydrateSessionState() {
+  const snapshot = loadSessionStateForToday();
+  if (!snapshot) return;
+
+  const restoredEntries = snapshot.entries;
+  if (restoredEntries && typeof restoredEntries === "object") {
+    Object.keys(restoredEntries).forEach((code) => {
+      if (feederByCode[code]) {
+        entries.set(code, restoredEntries[code]);
+      }
+    });
+  }
+
+  if (substations.includes(snapshot.activeSubstation)) {
+    activeSubstation = snapshot.activeSubstation;
+  }
+
+  if (snapshot.selectedFeederCode && feederByCode[snapshot.selectedFeederCode]) {
+    selectedFeederCode = snapshot.selectedFeederCode;
+  }
+}
+
+function toHHMMSS(value) {
+  if (!value) return "";
+  if (value.length === 5) return `${value}:00`;
+  return value;
+}
+
+function toHHMM(value) {
+  if (!value) return "";
+  return value.slice(0, 5);
+}
+
+function hasAnyEvent(entry) {
+  return (
+    Number(entry.TT || 0) > 0 ||
+    entry["SF Start"] ||
+    entry["ESD Start"] ||
+    entry["PSD Start"]
+  );
+}
+
+function populateSubstations() {
+  el.substationSelect.innerHTML = "";
+  substations.forEach((name) => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    el.substationSelect.appendChild(option);
+  });
+  el.substationSelect.value = activeSubstation;
+}
+
+function renderFeederPills() {
+  visibleFeederCodes = feederMaster
+    .filter((f) => f.substation === activeSubstation)
+    .map((f) => f.code);
+
+  el.feederPills.innerHTML = "";
+  if (!visibleFeederCodes.length) {
+    selectedFeederCode = "";
+    clearFormFields();
+    el.selectedFeeder.value = "";
+    return;
+  }
+
+  if (!visibleFeederCodes.includes(selectedFeederCode)) {
+    selectedFeederCode = visibleFeederCodes[0];
+  }
+
+  visibleFeederCodes.forEach((code) => {
+    const feeder = feederByCode[code];
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `pill${code === selectedFeederCode ? " active" : ""}`;
+    btn.dataset.code = code;
+    btn.textContent = feeder.feeder;
+    el.feederPills.appendChild(btn);
+  });
+
+  setFeederMeta(selectedFeederCode);
+}
+
+function moveSubstation(step) {
+  if (!substations.length) return;
+  const idx = Math.max(0, substations.indexOf(activeSubstation));
+  let nextIdx = idx + step;
+  if (nextIdx < 0) nextIdx = substations.length - 1;
+  if (nextIdx >= substations.length) nextIdx = 0;
+  activeSubstation = substations[nextIdx];
+  el.substationSelect.value = activeSubstation;
+  renderFeederPills();
+}
+
+function autoSaveActiveFeeder() {
+  if (!selectedFeederCode) return;
+  saveCurrentEntry();
+}
+
+function debounce(fn, waitMs) {
+  let timer = null;
+  return (...args) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), waitMs);
+  };
+}
+
+function setFeederMeta(code) {
+  const feeder = feederByCode[code];
+  if (!feeder) return;
+  selectedFeederCode = code;
+  el.selectedFeeder.value = `${feeder.feeder} (${feeder.category})`;
+  loadEntryToForm(code);
+  persistSessionState();
+}
+
+function clearFormFields() {
+  el.tt.value = "";
+  el.ttReason.value = "";
+  el.sfStart.value = "";
+  el.sfEnd.value = "";
+  el.sfReason.value = "";
+  el.esdStart.value = "";
+  el.esdEnd.value = "";
+  el.esdReason.value = "";
+  el.psdStart.value = "";
+  el.psdEnd.value = "";
+  el.psdReason.value = "";
+}
+
+function loadEntryToForm(code) {
+  clearFormFields();
+  const entry = entries.get(code);
+  if (!entry) return;
+  el.tt.value = entry.TT || "";
+  el.ttReason.value = entry["TT Reason"] || "";
+  el.sfStart.value = toHHMM(entry["SF Start"]);
+  el.sfEnd.value = toHHMM(entry["SF End"]);
+  el.sfReason.value = entry["SF Reason"] || "";
+  el.esdStart.value = toHHMM(entry["ESD Start"]);
+  el.esdEnd.value = toHHMM(entry["ESD End"]);
+  el.esdReason.value = entry["ESD Reason"] || "";
+  el.psdStart.value = toHHMM(entry["PSD Start"]);
+  el.psdEnd.value = toHHMM(entry["PSD End"]);
+  el.psdReason.value = entry["PSD Reason"] || "";
+}
+
+function saveCurrentEntry() {
+  const code = selectedFeederCode;
+  const feeder = feederByCode[code];
+  if (!feeder) return;
+  const ttNumber = Number(el.tt.value);
+  const ttValue =
+    el.tt.value !== "" && Number.isFinite(ttNumber) && ttNumber >= 0
+      ? String(Math.trunc(ttNumber))
+      : "";
+  const ttReason = el.ttReason.value.trim() || (Number(ttValue || 0) > 0 ? "Wind" : "");
+
+  const record = {
+    "Sub Station": feeder.substation,
+    Feeder: feeder.feeder,
+    "Feeder Category": feeder.category,
+    Code: feeder.code,
+    TT: ttValue,
+    "TT Reason": ttReason,
+    "SF Start": toHHMMSS(el.sfStart.value),
+    "SF End": toHHMMSS(el.sfEnd.value),
+    "SF Reason": el.sfReason.value.trim(),
+    "ESD Start": toHHMMSS(el.esdStart.value),
+    "ESD End": toHHMMSS(el.esdEnd.value),
+    "ESD Reason": el.esdReason.value.trim(),
+    "PSD Start": toHHMMSS(el.psdStart.value),
+    "PSD End": toHHMMSS(el.psdEnd.value),
+    "PSD Reason": el.psdReason.value.trim(),
+  };
+
+  if (!hasAnyEvent(record)) {
+    entries.delete(code);
+  } else {
+    entries.set(code, record);
+  }
+
+  persistSessionState();
+}
+
+function normalizeRowsForScript() {
+  return feederMaster
+    .map((f) => entries.get(f.code))
+    .filter(Boolean)
+    .map((r) => ({
+      Code: r.Code,
+      TT: r.TT,
+      "TT Reason": r["TT Reason"],
+      "SF Start": r["SF Start"],
+      "SF End": r["SF End"],
+      "SF Reason": r["SF Reason"],
+      "ESD Start": r["ESD Start"],
+      "ESD End": r["ESD End"],
+      "ESD Reason": r["ESD Reason"],
+      "PSD Start": r["PSD Start"],
+      "PSD End": r["PSD End"],
+      "PSD Reason": r["PSD Reason"],
+    }));
+}
+
+function isValidHHMMSS(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(value);
+}
+
+function validateRowsForScript(rows) {
+  const issues = [];
+  const sections = [
+    ["SF", "SF Start", "SF End"],
+    ["ESD", "ESD Start", "ESD End"],
+    ["PSD", "PSD Start", "PSD End"],
+  ];
+
+  const pushIssue = (code, message) => {
+    const feeder = feederByCode[code];
+    const name = feeder ? feeder.feeder : code;
+    issues.push(`${name} (${code}): ${message}`);
+  };
+
+  rows.forEach((row) => {
+    if (row.TT && !/^\d+$/.test(String(row.TT))) {
+      pushIssue(row.Code, "TT should be a whole number.");
+    }
+
+    sections.forEach(([label, startKey, endKey]) => {
+      const start = row[startKey];
+      const end = row[endKey];
+
+      if (start && !end) {
+        pushIssue(row.Code, `${label} end time is missing.`);
+      }
+      if (!start && end) {
+        pushIssue(row.Code, `${label} start time is missing.`);
+      }
+      if (start && !isValidHHMMSS(start)) {
+        pushIssue(row.Code, `${label} start time is invalid.`);
+      }
+      if (end && !isValidHHMMSS(end)) {
+        pushIssue(row.Code, `${label} end time is invalid.`);
+      }
+    });
+  });
+
+  return issues;
+}
+
+function buildAutomationScript(rows) {
+  const rowsJson = JSON.stringify(rows, null, 2);
+  const masterScheduleJson = JSON.stringify(MASTER_SCHEDULE_TSV);
+
+  return `// ==========================================
+// 1. MASTER SCHEDULE DATABASE
+// ==========================================
+const masterScheduleRaw = ${masterScheduleJson};
+
+const masterDB = {};
+masterScheduleRaw.split('\\n').forEach(line => {
+  const cols = line.split('\\t');
+  if (cols.length >= 6 && (cols[0] || '').trim()) {
+    masterDB[cols[0].trim()] = {
+      name: cols[1],
+      type: cols[2],
+      start: cols[4].trim(),
+      end: cols[5].trim(),
+      mw: cols[6] ? cols[6].trim() : '0.02'
+    };
+  }
+});
+
+// ==========================================
+// 2. DAILY DATA (FROM WEB FORM)
+// ==========================================
+const rows = ${rowsJson};
+
+// ==========================================
+// 3. UTILITY FUNCTIONS
+// ==========================================
+function formatTime(time) {
+  if (!time || time === '') return '';
+  const parts = time.split(':');
+  if (parts[0] && parts[0].length === 1) parts[0] = '0' + parts[0];
+  if (parts[1] && parts[1].length === 1) parts[1] = '0' + parts[1];
+  if (parts.length === 2) return parts[0] + ':' + parts[1] + ':00';
+  return parts.join(':');
+}
+
+function triggerInput(element, value) {
+  if (!element) return;
+  element.value = value;
+  ['input', 'change', 'blur'].forEach(evt => element.dispatchEvent(new Event(evt, { bubbles: true })));
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForCount(selector, minCount, timeout = 7000, interval = 100) {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    if (document.querySelectorAll(selector).length >= minCount) return true;
+    await sleep(interval);
+  }
+  console.warn('Timeout waiting for', selector, 'count', minCount);
+  return false;
+}
+
+async function waitForIndex(selector, index, timeout = 7000, interval = 100) {
+  return waitForCount(selector, index + 1, timeout, interval);
+}
+
+function toMinutes(t) {
+  const p = t.split(':').map(Number);
+  return (p[0] * 60) + (p[1] || 0);
+}
+
+function fromMinutes(m) {
+  const value = ((m % 1440) + 1440) % 1440;
+  const h = Math.floor(value / 60);
+  const min = value % 60;
+  return String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0') + ':00';
+}
+
+function calculateDuration(start, end) {
+  if (!start || !end) return '';
+  let duration = toMinutes(end) - toMinutes(start);
+  if (duration < 0) duration += 1440;
+  return fromMinutes(duration);
+}
+
+function calculateCompensation(scheduleEnd, outageStart, outageEnd) {
+  if (!scheduleEnd || !outageStart || !outageEnd) return { start: '', end: '' };
+  let duration = toMinutes(outageEnd) - toMinutes(outageStart);
+  if (duration < 0) duration += 1440;
+  return {
+    start: formatTime(scheduleEnd),
+    end: fromMinutes(toMinutes(scheduleEnd) + duration)
+  };
+}
+
+function calculateTotals(dataRows) {
+  let sfCount = 0, esdCount = 0, psdCount = 0;
+  dataRows.forEach(row => {
+    if (row['SF Start']) sfCount++;
+    if (row['ESD Start']) esdCount++;
+    if (row['PSD Start']) psdCount++;
+  });
+  return { sfCount, esdCount, psdCount };
+}
+
+// ==========================================
+// 4. MAIN FORM FILLING LOGIC
+// ==========================================
+async function fillForm() {
+  console.log('Starting Smart Form Fill...');
+  const totals = calculateTotals(rows);
+  console.log('Totals:', totals);
+
+  if (totals.esdCount > 0) {
+    const cb = document.getElementById('IsFeederDown');
+    if (cb && !cb.checked) { cb.click(); await sleep(300); }
+  }
+
+  if (totals.psdCount > 0) {
+    const cb = document.getElementById('IsFeederDownPSD');
+    if (cb && !cb.checked) { cb.click(); await sleep(300); }
+  }
+
+  if (totals.sfCount > 0) {
+    triggerInput(document.getElementById('permanantfault'), totals.sfCount);
+    await waitForCount('select[name="pffeedername[]"]', totals.sfCount);
+  }
+
+  if (totals.esdCount > 0) {
+    triggerInput(document.getElementById('noofesdonfeeder'), totals.esdCount);
+    await waitForCount('select[name="esdfeedername[]"]', totals.esdCount);
+  }
+
+  if (totals.psdCount > 0) {
+    triggerInput(document.getElementById('noofpsdonfeeder'), totals.psdCount);
+    await waitForCount('select[name="psdfeedername[]"]', totals.psdCount);
+  }
+
+  let sfIdx = 0, esdIdx = 0, psdIdx = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const masterData = masterDB[row.Code];
+
+    if (row.TT && row.TT !== '0') {
+      const btn = document.getElementById('addtt');
+      if (btn) {
+        const prevCount = document.querySelectorAll('select[name="ttfeedername[]"]').length;
+        btn.click();
+        await waitForCount('select[name="ttfeedername[]"]', prevCount + 1);
+        const selects = document.querySelectorAll('select[name="ttfeedername[]"]');
+        const nums = document.querySelectorAll('input[name="ttnumber[]"]');
+        const reasons = document.querySelectorAll('input[name="ttreason[]"]');
+        const idx = selects.length - 1;
+        if (selects[idx]) triggerInput(selects[idx], row.Code);
+        if (nums[idx]) triggerInput(nums[idx], row.TT);
+        if (reasons[idx]) triggerInput(reasons[idx], row['TT Reason']);
+      }
+    }
+
+    if (row['SF Start']) {
+      const selects = document.querySelectorAll('select[name="pffeedername[]"]');
+      if (selects[sfIdx]) {
+        triggerInput(selects[sfIdx], row.Code);
+        await waitForIndex('input[name="pffromtime[]"]', sfIdx);
+        const froms = document.querySelectorAll('input[name="pffromtime[]"]');
+        const tos = document.querySelectorAll('input[name="pftotime[]"]');
+        const reasons = document.querySelectorAll('input[name="pfreason[]"]');
+        if (froms[sfIdx]) froms[sfIdx].value = formatTime(row['SF Start']);
+        if (tos[sfIdx]) {
+          tos[sfIdx].value = formatTime(row['SF End']);
+          tos[sfIdx].dispatchEvent(new Event('blur', { bubbles: true }));
+        }
+        if (reasons[sfIdx]) reasons[sfIdx].value = row['SF Reason'];
+        const mwFields = document.querySelectorAll('input[name="pfMW[]"]');
+        if (mwFields[sfIdx] && masterData) triggerInput(mwFields[sfIdx], masterData.mw);
+
+        const suffix = sfIdx + 1;
+        const ag3PhStart = document.getElementById('SFthreephasefromtime' + suffix);
+        if (ag3PhStart && masterData && masterData.type.includes('AG')) {
+          triggerInput(ag3PhStart, formatTime(masterData.start));
+          const ag3PhEnd = document.getElementById('SFthreephasetotime' + suffix);
+          if (ag3PhEnd) triggerInput(ag3PhEnd, formatTime(masterData.end));
+          const compTimes = calculateCompensation(masterData.end, row['SF Start'], row['SF End']);
+          const compStart = document.getElementById('SFcompesationfromtime' + suffix);
+          if (compStart) {
+            triggerInput(compStart, compTimes.start);
+            triggerInput(document.getElementById('SFcompesationtotime' + suffix), compTimes.end);
+            const duration = calculateDuration(masterData.start, masterData.end);
+            triggerInput(document.getElementById('SFcompesationpowersuppy' + suffix), duration);
+          }
+        }
+      }
+      sfIdx++;
+    }
+
+    if (row['ESD Start']) {
+      const selects = document.querySelectorAll('select[name="esdfeedername[]"]');
+      if (selects[esdIdx]) {
+        triggerInput(selects[esdIdx], row.Code);
+        await waitForIndex('input[name="esdfeederfromtime[]"]', esdIdx);
+        const froms = document.querySelectorAll('input[name="esdfeederfromtime[]"]');
+        const tos = document.querySelectorAll('input[name="esdfeedertotime[]"]');
+        const reasons = document.querySelectorAll('input[name="esdfeederreason[]"]');
+        if (froms[esdIdx]) froms[esdIdx].value = formatTime(row['ESD Start']);
+        if (tos[esdIdx]) {
+          tos[esdIdx].value = formatTime(row['ESD End']);
+          tos[esdIdx].dispatchEvent(new Event('blur', { bubbles: true }));
+        }
+        if (reasons[esdIdx]) reasons[esdIdx].value = row['ESD Reason'];
+        const mwFields = document.querySelectorAll('input[name="esdfeederMW[]"]');
+        if (mwFields[esdIdx] && masterData) triggerInput(mwFields[esdIdx], masterData.mw);
+
+        const suffix = esdIdx + 1;
+        const ag3PhStart = document.getElementById('ESDthreephasefromtime' + suffix);
+        if (ag3PhStart && masterData && masterData.type.includes('AG')) {
+          triggerInput(ag3PhStart, formatTime(masterData.start));
+          const ag3PhEnd = document.getElementById('ESDthreephasetotime' + suffix);
+          if (ag3PhEnd) triggerInput(ag3PhEnd, formatTime(masterData.end));
+          const compTimes = calculateCompensation(masterData.end, row['ESD Start'], row['ESD End']);
+          const compStart = document.getElementById('ESDcompesationfromtime' + suffix);
+          if (compStart) {
+            triggerInput(compStart, compTimes.start);
+            triggerInput(document.getElementById('ESDcompesationtotime' + suffix), compTimes.end);
+            const duration = calculateDuration(masterData.start, masterData.end);
+            triggerInput(document.getElementById('ESDcompesationpowersuppy' + suffix), duration);
+          }
+        }
+      }
+      esdIdx++;
+    }
+
+    if (row['PSD Start']) {
+      const selects = document.querySelectorAll('select[name="psdfeedername[]"]');
+      if (selects[psdIdx]) {
+        triggerInput(selects[psdIdx], row.Code);
+        await waitForIndex('input[name="psdfeederfromtime[]"]', psdIdx);
+        const froms = document.querySelectorAll('input[name="psdfeederfromtime[]"]');
+        const tos = document.querySelectorAll('input[name="psdfeedertotime[]"]');
+        const reasons = document.querySelectorAll('input[name="psdfeederreason[]"]');
+        if (froms[psdIdx]) froms[psdIdx].value = formatTime(row['PSD Start']);
+        if (tos[psdIdx]) {
+          tos[psdIdx].value = formatTime(row['PSD End']);
+          tos[psdIdx].dispatchEvent(new Event('blur', { bubbles: true }));
+        }
+        if (reasons[psdIdx]) reasons[psdIdx].value = row['PSD Reason'];
+        const mwFields = document.querySelectorAll('input[name="psdfeederMW[]"]');
+        if (mwFields[psdIdx] && masterData) triggerInput(mwFields[psdIdx], masterData.mw);
+
+        const suffix = psdIdx + 1;
+        const ag3PhStart = document.getElementById('PSDthreephasefromtime' + suffix);
+        if (ag3PhStart && masterData && masterData.type.includes('AG')) {
+          triggerInput(ag3PhStart, formatTime(masterData.start));
+          const ag3PhEnd = document.getElementById('PSDthreephasetotime' + suffix);
+          if (ag3PhEnd) triggerInput(ag3PhEnd, formatTime(masterData.end));
+          const compTimes = calculateCompensation(masterData.end, row['PSD Start'], row['PSD End']);
+          const compStart = document.getElementById('PSDcompesationfromtime' + suffix);
+          if (compStart) {
+            triggerInput(compStart, compTimes.start);
+            triggerInput(document.getElementById('PSDcompesationtotime' + suffix), compTimes.end);
+            const duration = calculateDuration(masterData.start, masterData.end);
+            triggerInput(document.getElementById('PSDcompesationpowersuppy' + suffix), duration);
+          }
+        }
+      }
+      psdIdx++;
+    }
+  }
+
+  console.log('Form filling complete!');
+}
+
+fillForm();
+`;
+}
+async function writeToClipboard(text) {
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    const temp = document.createElement("textarea");
+    temp.value = text;
+    temp.setAttribute("readonly", "true");
+    temp.style.position = "fixed";
+    temp.style.left = "-9999px";
+    document.body.appendChild(temp);
+    temp.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(temp);
+    return copied;
+  }
+}
+
+async function generateScript() {
+  autoSaveActiveFeeder();
+  const rows = normalizeRowsForScript();
+  if (!rows.length) {
+    if (el.generateStatus) {
+      el.generateStatus.textContent = "No entries found. Add at least one TT/SF/ESD/PSD entry.";
+    }
+    lastGeneratedScript = "";
+    return;
+  }
+
+  const validationIssues = validateRowsForScript(rows);
+  if (validationIssues.length) {
+    const preview = validationIssues.slice(0, 2).join(" | ");
+    const more = validationIssues.length > 2 ? ` | +${validationIssues.length - 2} more` : "";
+    if (el.generateStatus) {
+      el.generateStatus.textContent = `Fix data before generate: ${preview}${more}`;
+    }
+    lastGeneratedScript = "";
+    return;
+  }
+
+  lastGeneratedScript = buildAutomationScript(rows);
+  const copied = await writeToClipboard(lastGeneratedScript);
+  if (el.generateStatus) {
+    el.generateStatus.textContent = copied
+      ? "Script generated and copied to clipboard."
+      : "Script generated, but clipboard copy failed.";
+  }
+}
+
+function bindLiveAutoSave() {
+  const debouncedSave = debounce(() => autoSaveActiveFeeder(), 180);
+  const trackedFields = [
+    el.tt,
+    el.ttReason,
+    el.sfStart,
+    el.sfEnd,
+    el.sfReason,
+    el.esdStart,
+    el.esdEnd,
+    el.esdReason,
+    el.psdStart,
+    el.psdEnd,
+    el.psdReason,
+  ];
+
+  trackedFields.forEach((field) => {
+    if (!field) return;
+    field.addEventListener("input", debouncedSave);
+    field.addEventListener("change", debouncedSave);
+  });
+}
+
+el.substationSelect.addEventListener("change", (e) => {
+  autoSaveActiveFeeder();
+  activeSubstation = e.target.value;
+  renderFeederPills();
+});
+el.feederPills.addEventListener("click", (e) => {
+  const pill = e.target.closest("button[data-code]");
+  if (!pill) return;
+  autoSaveActiveFeeder();
+  selectedFeederCode = pill.dataset.code;
+  renderFeederPills();
+});
+el.prevFeederBtn.addEventListener("click", () => {
+  autoSaveActiveFeeder();
+  moveSubstation(-1);
+});
+el.nextFeederBtn.addEventListener("click", () => {
+  autoSaveActiveFeeder();
+  moveSubstation(1);
+});
+el.clearBtn.addEventListener("click", () => loadEntryToForm(selectedFeederCode));
+el.generateBtn.addEventListener("click", generateScript);
+
+const runAutoBtn = document.getElementById("runAutoBtn");
+if (runAutoBtn) {
+  runAutoBtn.addEventListener("click", async () => {
+    // Make sure we have the latest script generated
+    await generateScript();
+    
+    if (!lastGeneratedScript) {
+       return; // Generation failed, error message already shown
+    }
+
+    if (el.generateStatus) {
+      el.generateStatus.textContent = "Sending script to automation server...";
+    }
+    
+    try {
+      runAutoBtn.disabled = true;
+      runAutoBtn.textContent = "Running...";
+      
+      const dateInput = document.getElementById("activityDate").value;
+      let formattedDate = "";
+      if (dateInput) {
+        // Input is YYYY-MM-DD, convert to DD-MM-YYYY
+        const [yyyy, mm, dd] = dateInput.split("-");
+        formattedDate = `${dd}-${mm}-${yyyy}`;
+      } else {
+        // Default to today
+        const now = new Date();
+        const dd = String(now.getDate()).padStart(2, '0');
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const yyyy = now.getFullYear();
+        formattedDate = `${dd}-${mm}-${yyyy}`;
+      }
+
+      // 300-second timeout — matches Cloud Run's 5-minute max request limit
+      const controller = new AbortController();
+      const fetchTimeout = setTimeout(() => controller.abort(), 300_000);
+
+      let res;
+      try {
+        res = await fetch(`${API_BASE_URL}/api/run-script`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ script: lastGeneratedScript, activityDate: formattedDate }),
+          signal: controller.signal,
+        });
+      } catch (fetchErr) {
+        if (fetchErr.name === "AbortError") {
+          throw new Error("Request timed out after 150 seconds. The automation may still be running — check the DGVCL site manually.");
+        }
+        throw new Error(`Network error: ${fetchErr.message}`);
+      } finally {
+        clearTimeout(fetchTimeout);
+      }
+      
+      const resText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(resText);
+      } catch (e) {
+        console.error("Non-JSON Response Server Error:", resText);
+        let errorMsg = resText.substring(0, 50).replace(/\s+/g, " ");
+        if (res.status === 403) errorMsg = "403 Forbidden - Check Cloud Run unauthenticated access";
+        if (res.status === 404) errorMsg = "404 Not Found - Check backend URL and route";
+        throw new Error(`Server Error (${res.status}): ${errorMsg}`);
+      }
+      
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to execute script");
+      }
+      
+      if (el.generateStatus) {
+        el.generateStatus.textContent = "Automation finished successfully!";
+      }
+    } catch (err) {
+      if (el.generateStatus) {
+        el.generateStatus.textContent = "Error: " + err.message;
+      }
+      console.error(err);
+    } finally {
+      runAutoBtn.disabled = false;
+      runAutoBtn.textContent = "Run Automatically";
+    }
+  });
+}
+
+hydrateSessionState();
+populateSubstations();
+renderFeederPills();
+if (selectedFeederCode) loadEntryToForm(selectedFeederCode);
+bindLiveAutoSave();
+persistSessionState();

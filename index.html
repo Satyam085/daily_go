@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DAS Automation Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <main class="app">
+    <header class="hero">
+      <p class="eyebrow">DAS Automation</p>
+      <h1>Mobile Entry + Script Generator</h1>
+      <p class="sub">Enter outage details feeder-wise and generate browser console automation code directly.</p>
+    </header>
+
+    <section class="panel">
+      <h2>Add / Update Feeder Entry</h2>
+      <div class="grid two">
+        <label>
+          Substation
+          <select id="substationSelect"></select>
+        </label>
+        <label>
+          Quick Nav
+          <div class="mini-actions">
+            <button id="prevFeederBtn" class="ghost" type="button">Previous</button>
+            <button id="nextFeederBtn" class="ghost" type="button">Next</button>
+          </div>
+        </label>
+      </div>
+
+      <div class="pill-wrap">
+        <p class="pill-label">Feeder</p>
+        <div id="feederPills" class="pills"></div>
+      </div>
+
+      <div class="grid two meta">
+        <label>
+          Activity Date
+          <input id="activityDate" type="date">
+        </label>
+        <label>
+          Feeder + Category
+          <input id="selectedFeeder" type="text" readonly>
+        </label>
+      </div>
+
+      <details open>
+        <summary>TT</summary>
+        <div class="grid two">
+          <label>
+            TT Number
+            <input id="tt" type="number" min="0" step="1" placeholder="0">
+          </label>
+          <label>
+            TT Reason
+            <input id="ttReason" type="text" placeholder="Wind / other reason">
+          </label>
+        </div>
+      </details>
+
+      <details>
+        <summary>SF</summary>
+        <div class="grid two">
+          <label>
+            SF Start
+            <input id="sfStart" type="time">
+          </label>
+          <label>
+            SF End
+            <input id="sfEnd" type="time">
+          </label>
+        </div>
+        <label>
+          SF Reason
+          <input id="sfReason" type="text" placeholder="Reason">
+        </label>
+      </details>
+
+      <details>
+        <summary>ESD</summary>
+        <div class="grid two">
+          <label>
+            ESD Start
+            <input id="esdStart" type="time">
+          </label>
+          <label>
+            ESD End
+            <input id="esdEnd" type="time">
+          </label>
+        </div>
+        <label>
+          ESD Reason
+          <input id="esdReason" type="text" placeholder="Reason">
+        </label>
+      </details>
+
+      <details>
+        <summary>PSD</summary>
+        <div class="grid two">
+          <label>
+            PSD Start
+            <input id="psdStart" type="time">
+          </label>
+          <label>
+            PSD End
+            <input id="psdEnd" type="time">
+          </label>
+        </div>
+        <label>
+          PSD Reason
+          <input id="psdReason" type="text" placeholder="Reason">
+        </label>
+      </details>
+
+      <div class="actions">
+        <button id="generateBtn" class="primary">Generate Script</button>
+        <button id="runAutoBtn" class="secondary" style="background: #10b981; color: white;">Run Automatically</button>
+        <button id="clearBtn" class="ghost">Clear Fields</button>
+      </div>
+      <p id="generateStatus" class="entry-meta">Tap Generate Script to auto-copy code.</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
