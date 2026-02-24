@@ -11,12 +11,13 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
 
-var baseURL = "https://das.dgvcl.in/DailyActivity"
+var baseURL = "http://das.dgvcl.in/DailyActivity"
 
 // ==========================================
 // MASTER DB
@@ -94,7 +95,6 @@ func init() {
 
 // ==========================================
 // ROW DATA STRUCTURE
-// Frontend sends JSON with these exact field names
 // ==========================================
 type Row struct {
 	Code      string `json:"Code"`
@@ -178,6 +178,22 @@ func calculateCompensation(scheduleEnd, outageStart, outageEnd string) CompTime 
 	}
 }
 
+// feederCategory returns the hidden category field value based on feeder type.
+// Based on curl observation: AG feeders → "AGDOM"
+// Extend this map if you observe other values for JGY, HTEX, AGSKY, etc.
+func feederCategory(feederType string) string {
+	switch {
+	case strings.HasPrefix(feederType, "AG"):
+		return "AGDOM"
+	case feederType == "JGY":
+		return "JGY"
+	case feederType == "HTEX":
+		return "HTEX"
+	default:
+		return feederType
+	}
+}
+
 // ==========================================
 // HTTP HELPERS
 // ==========================================
@@ -196,20 +212,49 @@ func setHeaders(req *http.Request, referer string) {
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:147.0) Gecko/20100101 Firefox/147.0")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Origin", "https://das.dgvcl.in")
+	req.Header.Set("Origin", "http://das.dgvcl.in")
 	req.Header.Set("Referer", referer)
 }
 
-func getPage(client *http.Client, pageURL, referer string) error {
+// fetchPage fetches a page and returns its body HTML.
+func fetchPage(client *http.Client, pageURL, referer string) (string, error) {
 	req, _ := http.NewRequest("GET", pageURL, nil)
 	setHeaders(req, referer)
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer resp.Body.Close()
-	io.ReadAll(resp.Body)
-	return nil
+	body, err := io.ReadAll(resp.Body)
+	return string(body), err
+}
+
+func getPage(client *http.Client, pageURL, referer string) error {
+	_, err := fetchPage(client, pageURL, referer)
+	return err
+}
+
+// extractHiddenFields parses HTML and returns all <input type="hidden"> name=value pairs.
+var reHidden = regexp.MustCompile(`(?i)<input[^>]+type=["']?hidden["']?[^>]*>`)
+var reName = regexp.MustCompile(`(?i)name=["']([^"']*)["']`)
+var reValue = regexp.MustCompile(`(?i)value=["']([^"']*)["']`)
+
+func extractHiddenFields(html string) url.Values {
+	fields := url.Values{}
+	for _, tag := range reHidden.FindAllString(html, -1) {
+		nameMatch := reName.FindStringSubmatch(tag)
+		valueMatch := reValue.FindStringSubmatch(tag)
+		if len(nameMatch) < 2 {
+			continue
+		}
+		name := nameMatch[1]
+		value := ""
+		if len(valueMatch) >= 2 {
+			value = valueMatch[1]
+		}
+		fields.Set(name, value)
+	}
+	return fields
 }
 
 func login(client *http.Client, username, password string) error {
@@ -245,9 +290,13 @@ func login(client *http.Client, username, password string) error {
 func submitActivity(client *http.Client, adate string, rows []Row) (string, error) {
 	referer := baseURL + "/addactivity.php?adate=" + adate
 
-	if err := getPage(client, referer, baseURL+"/home.php"); err != nil {
+	// Fetch activity page — extracts hidden fields the server embeds (sdocode, docode, etc.)
+	pageHTML, err := fetchPage(client, referer, baseURL+"/home.php")
+	if err != nil {
 		return "", fmt.Errorf("failed to load activity page: %w", err)
 	}
+	hiddenFields := extractHiddenFields(pageHTML)
+	log.Printf("Extracted %d hidden fields from activity page: %v", len(hiddenFields), hiddenFields)
 
 	sfCount, esdCount, psdCount := 0, 0, 0
 	for _, r := range rows {
@@ -263,13 +312,25 @@ func submitActivity(client *http.Client, adate string, rows []Row) (string, erro
 	}
 
 	form := url.Values{}
+	// Seed with all hidden fields from the page first
+	for k, vs := range hiddenFields {
+		form[k] = vs
+	}
+
+	// Interruption count fields
 	form.Set("permanantfault", strconv.Itoa(sfCount))
 	form.Set("noofesdonss", "0")
 	form.Set("noofesdonfeeder", strconv.Itoa(esdCount))
 	form.Set("noofpsdonss", "0")
 	form.Set("noofpsdonfeeder", strconv.Itoa(psdCount))
 
-	sfIdx, esdIdx, psdIdx := 1, 1, 1
+	// FIX: Use "Y" (not "on") to match what the browser sends
+	if esdCount > 0 {
+		form.Set("IsFeederDown", "Y")
+	}
+	if psdCount > 0 {
+		form.Set("IsFeederDownPSD", "Y")
+	}
 
 	for _, row := range rows {
 		master, hasMaster := masterDB[row.Code]
@@ -286,20 +347,24 @@ func submitActivity(client *http.Client, adate string, rows []Row) (string, erro
 			form.Add("pffeedername[]", row.Code)
 			form.Add("pffromtime[]", formatTime(row.SFStart))
 			form.Add("pftotime[]", formatTime(row.SFEnd))
+			form.Add("pftotalhr[]", calculateDuration(row.SFStart, row.SFEnd))
 			form.Add("pfreason[]", row.SFReason)
 			if hasMaster {
 				form.Add("pfMW[]", master.MW)
 			}
 			if hasMaster && strings.Contains(master.Type, "AG") {
-				key := strconv.Itoa(sfIdx)
-				form.Set("SFthreephasefromtime"+key, formatTime(master.Start))
-				form.Set("SFthreephasetotime"+key, formatTime(master.End))
+				// FIX: Add hdnsffeedercategory[] — required by PHP, observed in curl
+				form.Add("hdnsffeedercategory[]", feederCategory(master.Type))
+
 				comp := calculateCompensation(master.End, row.SFStart, row.SFEnd)
-				form.Set("SFcompesationfromtime"+key, comp.Start)
-				form.Set("SFcompesationtotime"+key, comp.End)
-				form.Set("SFcompesationpowersuppy"+key, calculateDuration(master.Start, master.End))
+				form.Add("SFthreephasefromtime[]", formatTime(master.Start))
+				form.Add("SFthreephasetotime[]", formatTime(master.End))
+				form.Add("SFthreephasetotalhr[]", calculateDuration(master.Start, master.End))
+				form.Add("SFcompesationfromtime[]", comp.Start)
+				form.Add("SFcompesationtotime[]", comp.End)
+				form.Add("SFcompesationtotalhr[]", calculateDuration(comp.Start, comp.End))
+				form.Add("SFcompesationpowersuppy[]", calculateDuration(master.Start, master.End))
 			}
-			sfIdx++
 		}
 
 		// --- ESD ---
@@ -307,20 +372,24 @@ func submitActivity(client *http.Client, adate string, rows []Row) (string, erro
 			form.Add("esdfeedername[]", row.Code)
 			form.Add("esdfeederfromtime[]", formatTime(row.ESDStart))
 			form.Add("esdfeedertotime[]", formatTime(row.ESDEnd))
+			form.Add("esdfeedertotalhr[]", calculateDuration(row.ESDStart, row.ESDEnd))
 			form.Add("esdfeederreason[]", row.ESDReason)
 			if hasMaster {
 				form.Add("esdfeederMW[]", master.MW)
 			}
 			if hasMaster && strings.Contains(master.Type, "AG") {
-				key := strconv.Itoa(esdIdx)
-				form.Set("ESDthreephasefromtime"+key, formatTime(master.Start))
-				form.Set("ESDthreephasetotime"+key, formatTime(master.End))
+				// FIX: Add hdnesdfeedercategory[] — mirror of SF pattern for ESD
+				form.Add("hdnesdfeedercategory[]", feederCategory(master.Type))
+
 				comp := calculateCompensation(master.End, row.ESDStart, row.ESDEnd)
-				form.Set("ESDcompesationfromtime"+key, comp.Start)
-				form.Set("ESDcompesationtotime"+key, comp.End)
-				form.Set("ESDcompesationpowersuppy"+key, calculateDuration(master.Start, master.End))
+				form.Add("ESDthreephasefromtime[]", formatTime(master.Start))
+				form.Add("ESDthreephasetotime[]", formatTime(master.End))
+				form.Add("ESDthreephasetotalhr[]", calculateDuration(master.Start, master.End))
+				form.Add("ESDcompesationfromtime[]", comp.Start)
+				form.Add("ESDcompesationtotime[]", comp.End)
+				form.Add("ESDcompesationtotalhr[]", calculateDuration(comp.Start, comp.End))
+				form.Add("ESDcompesationpowersuppy[]", calculateDuration(master.Start, master.End))
 			}
-			esdIdx++
 		}
 
 		// --- PSD ---
@@ -328,25 +397,30 @@ func submitActivity(client *http.Client, adate string, rows []Row) (string, erro
 			form.Add("psdfeedername[]", row.Code)
 			form.Add("psdfeederfromtime[]", formatTime(row.PSDStart))
 			form.Add("psdfeedertotime[]", formatTime(row.PSDEnd))
+			form.Add("psdfeedertotalhr[]", calculateDuration(row.PSDStart, row.PSDEnd))
 			form.Add("psdfeederreason[]", row.PSDReason)
 			if hasMaster {
 				form.Add("psdfeederMW[]", master.MW)
 			}
 			if hasMaster && strings.Contains(master.Type, "AG") {
-				key := strconv.Itoa(psdIdx)
-				form.Set("PSDthreephasefromtime"+key, formatTime(master.Start))
-				form.Set("PSDthreephasetotime"+key, formatTime(master.End))
+				// FIX: Add hdnpsdfeedercategory[] — required by PHP, observed in curl
+				form.Add("hdnpsdfeedercategory[]", feederCategory(master.Type))
+
 				comp := calculateCompensation(master.End, row.PSDStart, row.PSDEnd)
-				form.Set("PSDcompesationfromtime"+key, comp.Start)
-				form.Set("PSDcompesationtotime"+key, comp.End)
-				form.Set("PSDcompesationpowersuppy"+key, calculateDuration(master.Start, master.End))
+				form.Add("PSDthreephasefromtime[]", formatTime(master.Start))
+				form.Add("PSDthreephasetotime[]", formatTime(master.End))
+				form.Add("PSDthreephasetotalhr[]", calculateDuration(master.Start, master.End))
+				form.Add("PSDcompesationfromtime[]", comp.Start)
+				form.Add("PSDcompesationtotime[]", comp.End)
+				form.Add("PSDcompesationtotalhr[]", calculateDuration(comp.Start, comp.End))
+				form.Add("PSDcompesationpowersuppy[]", calculateDuration(master.Start, master.End))
 			}
-			psdIdx++
 		}
 	}
 
 	form.Set("submitinterruption", "")
 
+	log.Printf("Form POST body: %s", form.Encode())
 	req, _ := http.NewRequest("POST", baseURL+"/createtextfiles.php?type=INTD", strings.NewReader(form.Encode()))
 	setHeaders(req, referer)
 
@@ -355,7 +429,13 @@ func submitActivity(client *http.Client, adate string, rows []Row) (string, erro
 		return "", err
 	}
 	defer resp.Body.Close()
-	io.ReadAll(resp.Body)
+	respBody, _ := io.ReadAll(resp.Body)
+
+	snippet := string(respBody)
+	if len(snippet) > 2000 {
+		snippet = snippet[:2000]
+	}
+	log.Printf("Server response (final URL=%s):\n%s", resp.Request.URL.String(), snippet)
 
 	return resp.Request.URL.String(), nil
 }
@@ -421,8 +501,8 @@ func runScriptHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username := os.Getenv("DAS_USERNAME")
-	password := os.Getenv("DAS_PASSWORD")
+	username := "2124087"
+	password := "Valod@123"
 	if username == "" || password == "" {
 		writeJSON(w, http.StatusInternalServerError, RunScriptResponse{Success: false, Message: "server credentials not configured"})
 		return
@@ -432,6 +512,10 @@ func runScriptHandler(w http.ResponseWriter, r *http.Request) {
 	httpClient := newHTTPClient()
 
 	log.Printf("Starting automation for date=%s rows=%d", req.ActivityDate, len(req.Rows))
+	for i, r := range req.Rows {
+		log.Printf("  row[%d]: Code=%q TT=%q SF=%q-%q ESD=%q-%q PSD=%q-%q",
+			i, r.Code, r.TT, r.SFStart, r.SFEnd, r.ESDStart, r.ESDEnd, r.PSDStart, r.PSDEnd)
+	}
 
 	if err := login(httpClient, username, password); err != nil {
 		writeJSON(w, http.StatusUnauthorized, RunScriptResponse{Success: false, Message: "login failed: " + err.Error()})

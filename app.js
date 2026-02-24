@@ -64,7 +64,7 @@ const feederMaster = parseMaster(MASTER_SCHEDULE_TSV);
 const feederByCode = Object.fromEntries(feederMaster.map((f) => [f.code, f]));
 const entries = new Map();
 const substations = [...new Set(feederMaster.map((f) => f.substation))].sort();
-const API_BASE_URL = "https://dgvcl-backend-94310635710.asia-south1.run.app"; // Cloud Run URL
+const API_BASE_URL = "https://daily-go-94310635710.asia-south1.run.app"; // Cloud Run URL
 const SESSION_STORAGE_KEY = "das_automation_session_v1";
 let activeSubstation = substations[0] || "";
 let visibleFeederCodes = [];
