@@ -2,21 +2,21 @@ package main
 
 import (
 	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 )
 
-var (
-	baseURL = "https://das.dgvcl.in/DailyActivity"
-	client  *http.Client
-)
+var baseURL = "https://das.dgvcl.in/DailyActivity"
 
 // ==========================================
 // MASTER DB
@@ -74,9 +74,6 @@ var masterScheduleRaw = `322707	Bahej	AG	Bhimpore	08:00:00	16:00:00	0.02
 140204	Virpur	AG	Virpore	07:00:00	15:00:00	0.02`
 
 func init() {
-	jar, _ := cookiejar.New(nil)
-	client = &http.Client{Jar: jar, Timeout: 30 * time.Second}
-
 	for _, line := range strings.Split(masterScheduleRaw, "\n") {
 		cols := strings.Split(line, "\t")
 		if len(cols) >= 6 && strings.TrimSpace(cols[0]) != "" {
@@ -97,20 +94,21 @@ func init() {
 
 // ==========================================
 // ROW DATA STRUCTURE
+// Frontend sends JSON with these exact field names
 // ==========================================
 type Row struct {
-	Code      string
-	TT        string
-	TTReason  string
-	SFStart   string
-	SFEnd     string
-	SFReason  string
-	ESDStart  string
-	ESDEnd    string
-	ESDReason string
-	PSDStart  string
-	PSDEnd    string
-	PSDReason string
+	Code      string `json:"Code"`
+	TT        string `json:"TT"`
+	TTReason  string `json:"TT Reason"`
+	SFStart   string `json:"SF Start"`
+	SFEnd     string `json:"SF End"`
+	SFReason  string `json:"SF Reason"`
+	ESDStart  string `json:"ESD Start"`
+	ESDEnd    string `json:"ESD End"`
+	ESDReason string `json:"ESD Reason"`
+	PSDStart  string `json:"PSD Start"`
+	PSDEnd    string `json:"PSD End"`
+	PSDReason string `json:"PSD Reason"`
 }
 
 // ==========================================
@@ -189,6 +187,11 @@ func sha1Hash(s string) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
+func newHTTPClient() *http.Client {
+	jar, _ := cookiejar.New(nil)
+	return &http.Client{Jar: jar, Timeout: 30 * time.Second}
+}
+
 func setHeaders(req *http.Request, referer string) {
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:147.0) Gecko/20100101 Firefox/147.0")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
@@ -197,8 +200,8 @@ func setHeaders(req *http.Request, referer string) {
 	req.Header.Set("Referer", referer)
 }
 
-func getPage(url, referer string) error {
-	req, _ := http.NewRequest("GET", url, nil)
+func getPage(client *http.Client, pageURL, referer string) error {
+	req, _ := http.NewRequest("GET", pageURL, nil)
 	setHeaders(req, referer)
 	resp, err := client.Do(req)
 	if err != nil {
@@ -209,8 +212,8 @@ func getPage(url, referer string) error {
 	return nil
 }
 
-func login(username, password string) error {
-	if err := getPage(baseURL+"/index.php?msg=A", ""); err != nil {
+func login(client *http.Client, username, password string) error {
+	if err := getPage(client, baseURL+"/index.php?msg=A", ""); err != nil {
 		return fmt.Errorf("session error: %w", err)
 	}
 
@@ -230,24 +233,22 @@ func login(username, password string) error {
 	io.ReadAll(resp.Body)
 
 	if strings.Contains(resp.Request.URL.String(), "msg=F") {
-		return fmt.Errorf("login failed")
+		return fmt.Errorf("login failed: invalid credentials")
 	}
-	fmt.Println("Login successful:", resp.Request.URL.String())
+	log.Printf("Login successful: %s", resp.Request.URL.String())
 	return nil
 }
 
 // ==========================================
-// MAIN SUBMIT - mirrors fillForm() + submit
+// MAIN SUBMIT
 // ==========================================
-func submitActivity(adate string, rows []Row) (string, error) {
+func submitActivity(client *http.Client, adate string, rows []Row) (string, error) {
 	referer := baseURL + "/addactivity.php?adate=" + adate
 
-	// Visit the activity page first (like browser navigating to it)
-	if err := getPage(referer, baseURL+"/home.php"); err != nil {
+	if err := getPage(client, referer, baseURL+"/home.php"); err != nil {
 		return "", fmt.Errorf("failed to load activity page: %w", err)
 	}
 
-	// Count totals like JS does
 	sfCount, esdCount, psdCount := 0, 0, 0
 	for _, r := range rows {
 		if r.SFStart != "" {
@@ -262,8 +263,6 @@ func submitActivity(adate string, rows []Row) (string, error) {
 	}
 
 	form := url.Values{}
-
-	// Permanent fault count
 	form.Set("permanantfault", strconv.Itoa(sfCount))
 	form.Set("noofesdonss", "0")
 	form.Set("noofesdonfeeder", strconv.Itoa(esdCount))
@@ -346,10 +345,8 @@ func submitActivity(adate string, rows []Row) (string, error) {
 		}
 	}
 
-	// TT submit button
 	form.Set("submitinterruption", "")
 
-	fmt.Println("Submitting form to createtextfiles.php...")
 	req, _ := http.NewRequest("POST", baseURL+"/createtextfiles.php?type=INTD", strings.NewReader(form.Encode()))
 	setHeaders(req, referer)
 
@@ -358,48 +355,118 @@ func submitActivity(adate string, rows []Row) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	io.ReadAll(resp.Body)
 
-	fmt.Println("Final URL:", resp.Request.URL.String())
-	return string(body), nil
+	return resp.Request.URL.String(), nil
 }
 
 // ==========================================
-// MAIN
+// API REQUEST / RESPONSE
+// ==========================================
+type RunScriptRequest struct {
+	Rows         []Row  `json:"rows"`
+	ActivityDate string `json:"activityDate"`
+}
+
+type RunScriptResponse struct {
+	Success  bool   `json:"success"`
+	Message  string `json:"message"`
+	FinalURL string `json:"finalUrl,omitempty"`
+}
+
+// ==========================================
+// HANDLERS
+// ==========================================
+func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next(w, r)
+	}
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(v)
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func runScriptHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, RunScriptResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var req RunScriptRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, RunScriptResponse{Success: false, Message: "invalid JSON: " + err.Error()})
+		return
+	}
+
+	if len(req.Rows) == 0 {
+		writeJSON(w, http.StatusBadRequest, RunScriptResponse{Success: false, Message: "no rows provided"})
+		return
+	}
+	if req.ActivityDate == "" {
+		writeJSON(w, http.StatusBadRequest, RunScriptResponse{Success: false, Message: "activityDate is required (DD-MM-YYYY)"})
+		return
+	}
+
+	username := os.Getenv("DAS_USERNAME")
+	password := os.Getenv("DAS_PASSWORD")
+	if username == "" || password == "" {
+		writeJSON(w, http.StatusInternalServerError, RunScriptResponse{Success: false, Message: "server credentials not configured"})
+		return
+	}
+
+	// Each request gets its own HTTP client with its own cookie jar (session isolation)
+	httpClient := newHTTPClient()
+
+	log.Printf("Starting automation for date=%s rows=%d", req.ActivityDate, len(req.Rows))
+
+	if err := login(httpClient, username, password); err != nil {
+		writeJSON(w, http.StatusUnauthorized, RunScriptResponse{Success: false, Message: "login failed: " + err.Error()})
+		return
+	}
+
+	finalURL, err := submitActivity(httpClient, req.ActivityDate, req.Rows)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, RunScriptResponse{Success: false, Message: "submit failed: " + err.Error()})
+		return
+	}
+
+	log.Printf("Automation complete. Final URL: %s", finalURL)
+	writeJSON(w, http.StatusOK, RunScriptResponse{
+		Success:  true,
+		Message:  "Interruption details submitted successfully.",
+		FinalURL: finalURL,
+	})
+}
+
+// ==========================================
+// MAIN — HTTP Server
 // ==========================================
 func main() {
-	if err := login("2124087", "Valod@123"); err != nil {
-		fmt.Println("Login error:", err)
-		return
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
 	}
 
-	rows := []Row{
-		{
-			Code:     "322707",
-			TT:       "1",
-			TTReason: "Wind",
-		},
-		// Add more rows here as needed, e.g.:
-		// {
-		// 	Code:     "102501",
-		// 	ESDStart: "10:00",
-		// 	ESDEnd:   "14:00",
-		// 	ESDReason: "Fault",
-		// },
-		// {
-		// 	Code:     "102502",
-		// 	SFStart:  "09:00",
-		// 	SFEnd:    "11:00",
-		// 	SFReason: "Cable Fault",
-		// },
-	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", corsMiddleware(healthHandler))
+	mux.HandleFunc("/api/run-script", corsMiddleware(runScriptHandler))
 
-	body, err := submitActivity("25-02-2026", rows)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
+	log.Printf("Server listening on :%s", port)
+	if err := http.ListenAndServe(":"+port, mux); err != nil {
+		log.Fatal(err)
 	}
-
-	fmt.Println("\n--- Response ---")
-	fmt.Println(body)
 }

@@ -755,15 +755,29 @@ el.generateBtn.addEventListener("click", generateScript);
 const runAutoBtn = document.getElementById("runAutoBtn");
 if (runAutoBtn) {
   runAutoBtn.addEventListener("click", async () => {
-    // Make sure we have the latest script generated
-    await generateScript();
-    
-    if (!lastGeneratedScript) {
-       return; // Generation failed, error message already shown
+    // Save the current feeder entry before submitting
+    autoSaveActiveFeeder();
+
+    const rows = normalizeRowsForScript();
+    if (!rows.length) {
+      if (el.generateStatus) {
+        el.generateStatus.textContent = "No entries found. Add at least one TT/SF/ESD/PSD entry.";
+      }
+      return;
+    }
+
+    const validationIssues = validateRowsForScript(rows);
+    if (validationIssues.length) {
+      const preview = validationIssues.slice(0, 2).join(" | ");
+      const more = validationIssues.length > 2 ? ` | +${validationIssues.length - 2} more` : "";
+      if (el.generateStatus) {
+        el.generateStatus.textContent = `Fix data before submitting: ${preview}${more}`;
+      }
+      return;
     }
 
     if (el.generateStatus) {
-      el.generateStatus.textContent = "Sending script to automation server...";
+      el.generateStatus.textContent = "Sending to automation server...";
     }
     
     try {
@@ -794,7 +808,7 @@ if (runAutoBtn) {
         res = await fetch(`${API_BASE_URL}/api/run-script`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ script: lastGeneratedScript, activityDate: formattedDate }),
+          body: JSON.stringify({ rows, activityDate: formattedDate }),
           signal: controller.signal,
         });
       } catch (fetchErr) {
