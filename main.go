@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
@@ -11,9 +12,11 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"os"
+	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -547,10 +550,31 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", corsMiddleware(healthHandler))
-	mux.HandleFunc("/api/run-script", corsMiddleware(runScriptHandler))
+	mux.HandleFunc("/api/run-script", corsMiddleware(
+		http.TimeoutHandler(http.HandlerFunc(runScriptHandler), 60*time.Second,
+			`{"success":false,"message":"request timeout"}`).ServeHTTP))
 
-	log.Printf("Server listening on :%s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
-		log.Fatal(err)
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: mux,
 	}
+
+	go func() {
+		log.Printf("Server listening on :%s", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatal("Server forced to shutdown: ", err)
+	}
+	log.Println("Server exited")
 }

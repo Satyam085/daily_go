@@ -274,3 +274,95 @@ button.ghost {
     flex: 1;
   }
 }
+
+/* Spinner */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #d6dfd6;
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+  margin-right: 0.35rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Status colors */
+.status-success { color: #16a34a; }
+.status-error { color: #dc2626; }
+.status-info { color: var(--muted); }
+
+/* Pill data indicator */
+.pill.has-data {
+  position: relative;
+}
+.pill.has-data::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  background: #16a34a;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+}
+
+/* Substation tabs */
+.substation-tabs {
+  margin-bottom: 0.3rem;
+}
+.substation-tab {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.6rem;
+}
+
+/* Summary modal */
+.summary-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.summary-modal {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 1.2rem;
+  max-width: 600px;
+  width: 92%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+.summary-modal h2 {
+  margin: 0 0 0.8rem;
+}
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.summary-table th,
+.summary-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.summary-table th {
+  font-weight: 700;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.summary-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  justify-content: flex-end;
+}

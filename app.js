@@ -64,7 +64,7 @@ const feederMaster = parseMaster(MASTER_SCHEDULE_TSV);
 const feederByCode = Object.fromEntries(feederMaster.map((f) => [f.code, f]));
 const entries = new Map();
 const substations = [...new Set(feederMaster.map((f) => f.substation))].sort();
-const API_BASE_URL = "https://daily-go-94310635710.asia-south1.run.app"; // Cloud Run URL
+const API_BASE_URL = "https://daily-go-94310635710.asia-south1.run.app";
 const SESSION_STORAGE_KEY = "das_automation_session_v1";
 let activeSubstation = substations[0] || "";
 let visibleFeederCodes = [];
@@ -72,7 +72,7 @@ let selectedFeederCode = "";
 let lastGeneratedScript = "";
 
 const el = {
-  substationSelect: document.getElementById("substationSelect"),
+  substationTabs: document.getElementById("substationTabs"),
   feederPills: document.getElementById("feederPills"),
   selectedFeeder: document.getElementById("selectedFeeder"),
   tt: document.getElementById("tt"),
@@ -86,8 +86,6 @@ const el = {
   psdStart: document.getElementById("psdStart"),
   psdEnd: document.getElementById("psdEnd"),
   psdReason: document.getElementById("psdReason"),
-  prevFeederBtn: document.getElementById("prevFeederBtn"),
-  nextFeederBtn: document.getElementById("nextFeederBtn"),
   clearBtn: document.getElementById("clearBtn"),
   generateBtn: document.getElementById("generateBtn"),
   generateStatus: document.getElementById("generateStatus"),
@@ -175,18 +173,35 @@ function hasAnyEvent(entry) {
   );
 }
 
-function populateSubstations() {
-  el.substationSelect.innerHTML = "";
-  substations.forEach((name) => {
-    const option = document.createElement("option");
-    option.value = name;
-    option.textContent = name;
-    el.substationSelect.appendChild(option);
-  });
-  el.substationSelect.value = activeSubstation;
+function substationHasData(name) {
+  return feederMaster
+    .filter((f) => f.substation === name)
+    .some((f) => {
+      const entry = entries.get(f.code);
+      return entry && hasAnyEvent(entry);
+    });
 }
 
+// U9: Render substation tabs instead of select dropdown
+function populateSubstations() {
+  el.substationTabs.innerHTML = "";
+  substations.forEach((name) => {
+    const hasData = substationHasData(name);
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = `pill substation-tab${name === activeSubstation ? " active" : ""}${hasData ? " has-data" : ""}`;
+    tab.dataset.substation = name;
+    tab.textContent = name;
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", name === activeSubstation ? "true" : "false");
+    tab.setAttribute("aria-label", `${name}${hasData ? " (has data)" : ""}`);
+    el.substationTabs.appendChild(tab);
+  });
+}
+
+// U5: Feeder pills with has-data indicator + U12: ARIA labels
 function renderFeederPills() {
+  populateSubstations();
   visibleFeederCodes = feederMaster
     .filter((f) => f.substation === activeSubstation)
     .map((f) => f.code);
@@ -205,26 +220,20 @@ function renderFeederPills() {
 
   visibleFeederCodes.forEach((code) => {
     const feeder = feederByCode[code];
+    const entry = entries.get(code);
+    const hasData = entry && hasAnyEvent(entry);
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = `pill${code === selectedFeederCode ? " active" : ""}`;
+    btn.className = `pill${code === selectedFeederCode ? " active" : ""}${hasData ? " has-data" : ""}`;
     btn.dataset.code = code;
     btn.textContent = feeder.feeder;
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("aria-selected", code === selectedFeederCode ? "true" : "false");
+    btn.setAttribute("aria-label", `${feeder.feeder}${hasData ? " (has data)" : ""}`);
     el.feederPills.appendChild(btn);
   });
 
   setFeederMeta(selectedFeederCode);
-}
-
-function moveSubstation(step) {
-  if (!substations.length) return;
-  const idx = Math.max(0, substations.indexOf(activeSubstation));
-  let nextIdx = idx + step;
-  if (nextIdx < 0) nextIdx = substations.length - 1;
-  if (nextIdx >= substations.length) nextIdx = 0;
-  activeSubstation = substations[nextIdx];
-  el.substationSelect.value = activeSubstation;
-  renderFeederPills();
 }
 
 function autoSaveActiveFeeder() {
@@ -263,9 +272,26 @@ function clearFormFields() {
   el.psdReason.value = "";
 }
 
+// U4: Auto-expand details with data + U13: Focus management
 function loadEntryToForm(code) {
   clearFormFields();
   const entry = entries.get(code);
+
+  // Auto-expand/collapse details sections based on data
+  document.querySelectorAll("details").forEach((d) => {
+    const summary = d.querySelector("summary");
+    if (!summary) return;
+    const label = summary.textContent.trim();
+    if (!entry) {
+      if (label !== "TT") d.removeAttribute("open");
+      return;
+    }
+    if (label === "SF" && entry["SF Start"]) d.setAttribute("open", "");
+    else if (label === "ESD" && entry["ESD Start"]) d.setAttribute("open", "");
+    else if (label === "PSD" && entry["PSD Start"]) d.setAttribute("open", "");
+    else if (label !== "TT") d.removeAttribute("open");
+  });
+
   if (!entry) return;
   el.tt.value = entry.TT || "";
   el.ttReason.value = entry["TT Reason"] || "";
@@ -278,6 +304,9 @@ function loadEntryToForm(code) {
   el.psdStart.value = toHHMM(entry["PSD Start"]);
   el.psdEnd.value = toHHMM(entry["PSD End"]);
   el.psdReason.value = entry["PSD Reason"] || "";
+
+  // Focus first input for keyboard workflow
+  el.tt.focus();
 }
 
 function saveCurrentEntry() {
@@ -656,6 +685,7 @@ async function fillForm() {
 fillForm();
 `;
 }
+
 async function writeToClipboard(text) {
   if (!text) return false;
   try {
@@ -675,13 +705,40 @@ async function writeToClipboard(text) {
   }
 }
 
+// U2: Color-coded status messages
+function setStatus(text, type = "info") {
+  if (!el.generateStatus) return;
+  el.generateStatus.className = `entry-meta status-${type}`;
+  el.generateStatus.innerHTML = text;
+}
+
+// U11: Build summary table HTML for review modal
+function buildSummaryHTML(rows) {
+  let html =
+    '<table class="summary-table"><thead><tr><th>Feeder</th><th>TT</th><th>SF</th><th>ESD</th><th>PSD</th></tr></thead><tbody>';
+  rows.forEach((row) => {
+    const f = feederByCode[row.Code];
+    const name = f ? f.feeder : row.Code;
+    const sf = row["SF Start"]
+      ? `${row["SF Start"].slice(0, 5)}-${row["SF End"].slice(0, 5)}`
+      : "-";
+    const esd = row["ESD Start"]
+      ? `${row["ESD Start"].slice(0, 5)}-${row["ESD End"].slice(0, 5)}`
+      : "-";
+    const psd = row["PSD Start"]
+      ? `${row["PSD Start"].slice(0, 5)}-${row["PSD End"].slice(0, 5)}`
+      : "-";
+    html += `<tr><td>${name}</td><td>${row.TT || "-"}</td><td>${sf}</td><td>${esd}</td><td>${psd}</td></tr>`;
+  });
+  html += "</tbody></table>";
+  return html;
+}
+
 async function generateScript() {
   autoSaveActiveFeeder();
   const rows = normalizeRowsForScript();
   if (!rows.length) {
-    if (el.generateStatus) {
-      el.generateStatus.textContent = "No entries found. Add at least one TT/SF/ESD/PSD entry.";
-    }
+    setStatus("No entries found. Add at least one TT/SF/ESD/PSD entry.", "error");
     lastGeneratedScript = "";
     return;
   }
@@ -689,25 +746,28 @@ async function generateScript() {
   const validationIssues = validateRowsForScript(rows);
   if (validationIssues.length) {
     const preview = validationIssues.slice(0, 2).join(" | ");
-    const more = validationIssues.length > 2 ? ` | +${validationIssues.length - 2} more` : "";
-    if (el.generateStatus) {
-      el.generateStatus.textContent = `Fix data before generate: ${preview}${more}`;
-    }
+    const more =
+      validationIssues.length > 2
+        ? ` | +${validationIssues.length - 2} more`
+        : "";
+    setStatus(`Fix data before generate: ${preview}${more}`, "error");
     lastGeneratedScript = "";
     return;
   }
 
   lastGeneratedScript = buildAutomationScript(rows);
   const copied = await writeToClipboard(lastGeneratedScript);
-  if (el.generateStatus) {
-    el.generateStatus.textContent = copied
+  setStatus(
+    copied
       ? "Script generated and copied to clipboard."
-      : "Script generated, but clipboard copy failed.";
-  }
+      : "Script generated, but clipboard copy failed.",
+    copied ? "success" : "error"
+  );
 }
 
+// P8: Debounce bumped from 180ms to 500ms
 function bindLiveAutoSave() {
-  const debouncedSave = debounce(() => autoSaveActiveFeeder(), 180);
+  const debouncedSave = debounce(() => autoSaveActiveFeeder(), 500);
   const trackedFields = [
     el.tt,
     el.ttReason,
@@ -729,11 +789,17 @@ function bindLiveAutoSave() {
   });
 }
 
-el.substationSelect.addEventListener("change", (e) => {
+// U9: Substation tabs click handler
+el.substationTabs.addEventListener("click", (e) => {
+  const tab = e.target.closest("button[data-substation]");
+  if (!tab) return;
   autoSaveActiveFeeder();
-  activeSubstation = e.target.value;
+  activeSubstation = tab.dataset.substation;
+  populateSubstations();
   renderFeederPills();
+  persistSessionState();
 });
+
 el.feederPills.addEventListener("click", (e) => {
   const pill = e.target.closest("button[data-code]");
   if (!pill) return;
@@ -741,125 +807,212 @@ el.feederPills.addEventListener("click", (e) => {
   selectedFeederCode = pill.dataset.code;
   renderFeederPills();
 });
-el.prevFeederBtn.addEventListener("click", () => {
-  autoSaveActiveFeeder();
-  moveSubstation(-1);
-});
-el.nextFeederBtn.addEventListener("click", () => {
-  autoSaveActiveFeeder();
-  moveSubstation(1);
-});
+
 el.clearBtn.addEventListener("click", () => {
   clearFormFields();
-  if (selectedFeederCode) {
-    entries.delete(selectedFeederCode);
-    persistSessionState();
-  }
+  entries.clear();
+  renderFeederPills();
+  persistSessionState();
 });
 el.generateBtn.addEventListener("click", generateScript);
 
+// P7: Reduced timeout from 300s to 60s
+async function submitToServer(rows) {
+  const runAutoBtn = document.getElementById("runAutoBtn");
+  setStatus('<span class="spinner"></span> Sending to automation server...', "info");
+
+  try {
+    runAutoBtn.disabled = true;
+    runAutoBtn.textContent = "Running...";
+
+    const dateInput = document.getElementById("activityDate").value;
+    let formattedDate = "";
+    if (dateInput) {
+      const [yyyy, mm, dd] = dateInput.split("-");
+      formattedDate = `${dd}-${mm}-${yyyy}`;
+    } else {
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, "0");
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const yyyy = now.getFullYear();
+      formattedDate = `${dd}-${mm}-${yyyy}`;
+    }
+
+    const controller = new AbortController();
+    const fetchTimeout = setTimeout(() => controller.abort(), 60_000);
+
+    let res;
+    try {
+      res = await fetch(`${API_BASE_URL}/api/run-script`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows, activityDate: formattedDate }),
+        signal: controller.signal,
+      });
+    } catch (fetchErr) {
+      if (fetchErr.name === "AbortError") {
+        throw new Error(
+          "Request timed out after 60s. Check the DGVCL site manually."
+        );
+      }
+      throw new Error(`Network error: ${fetchErr.message}`);
+    } finally {
+      clearTimeout(fetchTimeout);
+    }
+
+    const resText = await res.text();
+    let data;
+    try {
+      data = JSON.parse(resText);
+    } catch (e) {
+      console.error("Non-JSON Response Server Error:", resText);
+      let errorMsg = resText.substring(0, 50).replace(/\s+/g, " ");
+      if (res.status === 403)
+        errorMsg = "403 Forbidden - Check Cloud Run unauthenticated access";
+      if (res.status === 404)
+        errorMsg = "404 Not Found - Check backend URL and route";
+      throw new Error(`Server Error (${res.status}): ${errorMsg}`);
+    }
+
+    if (!res.ok) {
+      throw new Error(data.message || "Failed to execute script");
+    }
+
+    setStatus("Automation finished successfully!", "success");
+  } catch (err) {
+    setStatus("Error: " + err.message, "error");
+    console.error(err);
+  } finally {
+    runAutoBtn.disabled = false;
+    runAutoBtn.textContent = "Run Automatically";
+  }
+}
+
+// U3 + U11: Confirmation modal before submission
 const runAutoBtn = document.getElementById("runAutoBtn");
 if (runAutoBtn) {
   runAutoBtn.addEventListener("click", async () => {
-    // Save the current feeder entry before submitting
     autoSaveActiveFeeder();
 
     const rows = normalizeRowsForScript();
     if (!rows.length) {
-      if (el.generateStatus) {
-        el.generateStatus.textContent = "No entries found. Add at least one TT/SF/ESD/PSD entry.";
-      }
+      setStatus(
+        "No entries found. Add at least one TT/SF/ESD/PSD entry.",
+        "error"
+      );
       return;
     }
 
     const validationIssues = validateRowsForScript(rows);
     if (validationIssues.length) {
       const preview = validationIssues.slice(0, 2).join(" | ");
-      const more = validationIssues.length > 2 ? ` | +${validationIssues.length - 2} more` : "";
-      if (el.generateStatus) {
-        el.generateStatus.textContent = `Fix data before submitting: ${preview}${more}`;
-      }
+      const more =
+        validationIssues.length > 2
+          ? ` | +${validationIssues.length - 2} more`
+          : "";
+      setStatus(`Fix data before submitting: ${preview}${more}`, "error");
       return;
     }
 
-    if (el.generateStatus) {
-      el.generateStatus.textContent = "Sending to automation server...";
-    }
-    
-    try {
-      runAutoBtn.disabled = true;
-      runAutoBtn.textContent = "Running...";
-      
-      const dateInput = document.getElementById("activityDate").value;
-      let formattedDate = "";
-      if (dateInput) {
-        // Input is YYYY-MM-DD, convert to DD-MM-YYYY
-        const [yyyy, mm, dd] = dateInput.split("-");
-        formattedDate = `${dd}-${mm}-${yyyy}`;
-      } else {
-        // Default to today
-        const now = new Date();
-        const dd = String(now.getDate()).padStart(2, '0');
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const yyyy = now.getFullYear();
-        formattedDate = `${dd}-${mm}-${yyyy}`;
+    // Show summary modal for review
+    const overlay = document.getElementById("summaryOverlay");
+    const content = document.getElementById("summaryContent");
+    content.innerHTML = buildSummaryHTML(rows);
+    overlay.style.display = "flex";
+
+    const confirmed = await new Promise((resolve) => {
+      const confirmBtn = document.getElementById("summaryConfirm");
+      const cancelBtn = document.getElementById("summaryCancel");
+      function cleanup() {
+        confirmBtn.removeEventListener("click", onConfirm);
+        cancelBtn.removeEventListener("click", onCancel);
+        overlay.removeEventListener("click", onOverlayClick);
+        overlay.style.display = "none";
       }
-
-      // 300-second timeout — matches Cloud Run's 5-minute max request limit
-      const controller = new AbortController();
-      const fetchTimeout = setTimeout(() => controller.abort(), 300_000);
-
-      let res;
-      try {
-        res = await fetch(`${API_BASE_URL}/api/run-script`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rows, activityDate: formattedDate }),
-          signal: controller.signal,
-        });
-      } catch (fetchErr) {
-        if (fetchErr.name === "AbortError") {
-          throw new Error("Request timed out after 150 seconds. The automation may still be running — check the DGVCL site manually.");
+      function onConfirm() {
+        cleanup();
+        resolve(true);
+      }
+      function onCancel() {
+        cleanup();
+        resolve(false);
+      }
+      function onOverlayClick(e) {
+        if (e.target === overlay) {
+          cleanup();
+          resolve(false);
         }
-        throw new Error(`Network error: ${fetchErr.message}`);
-      } finally {
-        clearTimeout(fetchTimeout);
       }
-      
-      const resText = await res.text();
-      let data;
-      try {
-        data = JSON.parse(resText);
-      } catch (e) {
-        console.error("Non-JSON Response Server Error:", resText);
-        let errorMsg = resText.substring(0, 50).replace(/\s+/g, " ");
-        if (res.status === 403) errorMsg = "403 Forbidden - Check Cloud Run unauthenticated access";
-        if (res.status === 404) errorMsg = "404 Not Found - Check backend URL and route";
-        throw new Error(`Server Error (${res.status}): ${errorMsg}`);
-      }
-      
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to execute script");
-      }
-      
-      if (el.generateStatus) {
-        el.generateStatus.textContent = "Automation finished successfully!";
-      }
-    } catch (err) {
-      if (el.generateStatus) {
-        el.generateStatus.textContent = "Error: " + err.message;
-      }
-      console.error(err);
-    } finally {
-      runAutoBtn.disabled = false;
-      runAutoBtn.textContent = "Run Automatically";
+      confirmBtn.addEventListener("click", onConfirm);
+      cancelBtn.addEventListener("click", onCancel);
+      overlay.addEventListener("click", onOverlayClick);
+    });
+
+    if (!confirmed) {
+      setStatus("Submission cancelled.", "info");
+      return;
     }
+
+    await submitToServer(rows);
   });
 }
 
+// ==========================================
+// INIT
+// ==========================================
 hydrateSessionState();
 populateSubstations();
 renderFeederPills();
 if (selectedFeederCode) loadEntryToForm(selectedFeederCode);
 bindLiveAutoSave();
 persistSessionState();
+
+// U8: Set date to today, prevent future dates
+const activityDateInput = document.getElementById("activityDate");
+if (activityDateInput) {
+  if (!activityDateInput.value) activityDateInput.value = getTodayLocalDate();
+  activityDateInput.max = getTodayLocalDate();
+}
+
+// U10: Keyboard shortcuts
+document.addEventListener("keydown", (e) => {
+  // Escape: close summary modal
+  if (e.key === "Escape") {
+    const overlay = document.getElementById("summaryOverlay");
+    if (overlay && overlay.style.display !== "none") {
+      overlay.style.display = "none";
+    }
+    return;
+  }
+
+  // Alt+G: Generate script
+  if (e.altKey && e.key === "g") {
+    e.preventDefault();
+    el.generateBtn.click();
+    return;
+  }
+
+  // Alt+R: Run automatically
+  if (e.altKey && e.key === "r") {
+    e.preventDefault();
+    const btn = document.getElementById("runAutoBtn");
+    if (btn && !btn.disabled) btn.click();
+    return;
+  }
+
+  // Alt+Left/Right: Navigate feeders within substation
+  if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+    e.preventDefault();
+    if (!visibleFeederCodes.length) return;
+    autoSaveActiveFeeder();
+    const idx = visibleFeederCodes.indexOf(selectedFeederCode);
+    let nextIdx;
+    if (e.key === "ArrowLeft") {
+      nextIdx = idx <= 0 ? visibleFeederCodes.length - 1 : idx - 1;
+    } else {
+      nextIdx = idx >= visibleFeederCodes.length - 1 ? 0 : idx + 1;
+    }
+    selectedFeederCode = visibleFeederCodes[nextIdx];
+    renderFeederPills();
+  }
+});
