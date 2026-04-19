@@ -13,10 +13,8 @@
 
 <body>
   <main class="app">
-    <header class="hero">
-      <p class="eyebrow">DAS Automation</p>
-      <h1>Mobile Entry + Script Generator</h1>
-      <p class="sub">Enter outage details feeder-wise and generate browser console automation code directly.</p>
+    <header class="hero compact">
+      <h1>DAS <span class="accent">Auto</span></h1>
     </header>
 
     <section class="panel">
@@ -112,11 +110,23 @@
 
       <div class="actions">
         <button id="generateBtn" class="primary">Generate Script</button>
-        <button id="runAutoBtn" class="secondary" style="background: #10b981; color: white;">Run Automatically</button>
+        <button id="runAutoBtn" class="accent">Run Automatically</button>
         <button id="clearBtn" class="ghost">Clear Fields</button>
       </div>
       <p id="generateStatus" class="entry-meta">Tap Generate Script to auto-copy code.</p>
     </section>
+
+    <div id="warningOverlay" class="warning-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Duration warning">
+      <div class="warning-modal">
+        <h2>Warning: Long Duration</h2>
+        <p id="warningMessage" style="font-size:0.85rem;margin:0;"></p>
+        <ul id="warningList"></ul>
+        <div class="warning-actions">
+          <button id="warningCancel" class="ghost" type="button">Cancel</button>
+          <button id="warningContinue" class="primary" type="button">Continue Anyway</button>
+        </div>
+      </div>
+    </div>
 
     <div id="summaryOverlay" class="summary-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Submission summary">
       <div class="summary-modal">

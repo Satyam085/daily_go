@@ -65,6 +65,7 @@ const feederByCode = Object.fromEntries(feederMaster.map((f) => [f.code, f]));
 const entries = new Map();
 const substations = [...new Set(feederMaster.map((f) => f.substation))].sort();
 const API_BASE_URL = "https://daily-go-94310635710.asia-south1.run.app";
+//const API_BASE_URL = "http://localhost:8080"
 const SESSION_STORAGE_KEY = "das_automation_session_v1";
 let activeSubstation = substations[0] || "";
 let visibleFeederCodes = [];
@@ -148,7 +149,10 @@ function hydrateSessionState() {
     activeSubstation = snapshot.activeSubstation;
   }
 
-  if (snapshot.selectedFeederCode && feederByCode[snapshot.selectedFeederCode]) {
+  if (
+    snapshot.selectedFeederCode &&
+    feederByCode[snapshot.selectedFeederCode]
+  ) {
     selectedFeederCode = snapshot.selectedFeederCode;
   }
 }
@@ -193,7 +197,10 @@ function populateSubstations() {
     tab.dataset.substation = name;
     tab.textContent = name;
     tab.setAttribute("role", "tab");
-    tab.setAttribute("aria-selected", name === activeSubstation ? "true" : "false");
+    tab.setAttribute(
+      "aria-selected",
+      name === activeSubstation ? "true" : "false",
+    );
     tab.setAttribute("aria-label", `${name}${hasData ? " (has data)" : ""}`);
     el.substationTabs.appendChild(tab);
   });
@@ -228,8 +235,14 @@ function renderFeederPills() {
     btn.dataset.code = code;
     btn.textContent = feeder.feeder;
     btn.setAttribute("role", "tab");
-    btn.setAttribute("aria-selected", code === selectedFeederCode ? "true" : "false");
-    btn.setAttribute("aria-label", `${feeder.feeder}${hasData ? " (has data)" : ""}`);
+    btn.setAttribute(
+      "aria-selected",
+      code === selectedFeederCode ? "true" : "false",
+    );
+    btn.setAttribute(
+      "aria-label",
+      `${feeder.feeder}${hasData ? " (has data)" : ""}`,
+    );
     el.feederPills.appendChild(btn);
   });
 
@@ -270,6 +283,12 @@ function clearFormFields() {
   el.psdStart.value = "";
   el.psdEnd.value = "";
   el.psdReason.value = "";
+  // Clear validation hints
+  [el.sfReason, el.esdReason, el.psdReason].forEach((r) => {
+    r.classList.remove("validation-warn");
+    const hint = r.parentElement.querySelector(".validation-hint");
+    if (hint) hint.remove();
+  });
 }
 
 // U4: Auto-expand details with data + U13: Focus management
@@ -305,6 +324,7 @@ function loadEntryToForm(code) {
   el.psdEnd.value = toHHMM(entry["PSD End"]);
   el.psdReason.value = entry["PSD Reason"] || "";
 
+  runSoftValidation();
   // Focus first input for keyboard workflow
   el.tt.focus();
 }
@@ -318,7 +338,8 @@ function saveCurrentEntry() {
     el.tt.value !== "" && Number.isFinite(ttNumber) && ttNumber >= 0
       ? String(Math.trunc(ttNumber))
       : "";
-  const ttReason = el.ttReason.value.trim() || (Number(ttValue || 0) > 0 ? "Wind" : "");
+  const ttReason =
+    el.ttReason.value.trim() || (Number(ttValue || 0) > 0 ? "Wind" : "");
 
   const record = {
     "Sub Station": feeder.substation,
@@ -374,9 +395,9 @@ function isValidHHMMSS(value) {
 function validateRowsForScript(rows) {
   const issues = [];
   const sections = [
-    ["SF", "SF Start", "SF End"],
-    ["ESD", "ESD Start", "ESD End"],
-    ["PSD", "PSD Start", "PSD End"],
+    ["SF", "SF Start", "SF End", "SF Reason"],
+    ["ESD", "ESD Start", "ESD End", "ESD Reason"],
+    ["PSD", "PSD Start", "PSD End", "PSD Reason"],
   ];
 
   const pushIssue = (code, message) => {
@@ -390,9 +411,10 @@ function validateRowsForScript(rows) {
       pushIssue(row.Code, "TT should be a whole number.");
     }
 
-    sections.forEach(([label, startKey, endKey]) => {
+    sections.forEach(([label, startKey, endKey, reasonKey]) => {
       const start = row[startKey];
       const end = row[endKey];
+      const reason = row[reasonKey];
 
       if (start && !end) {
         pushIssue(row.Code, `${label} end time is missing.`);
@@ -405,6 +427,12 @@ function validateRowsForScript(rows) {
       }
       if (end && !isValidHHMMSS(end)) {
         pushIssue(row.Code, `${label} end time is invalid.`);
+      }
+      if ((start || end) && !reason) {
+        pushIssue(
+          row.Code,
+          `${label} reason is required when time is provided.`,
+        );
       }
     });
   });
@@ -712,6 +740,17 @@ function setStatus(text, type = "info") {
   el.generateStatus.innerHTML = text;
 }
 
+function formatDuration(start, end) {
+  if (!start || !end) return "-";
+  let diff = toMinutes(end) - toMinutes(start);
+  if (diff < 0) diff += 1440;
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+}
+
 // U11: Build summary table HTML for review modal
 function buildSummaryHTML(rows) {
   let html =
@@ -720,13 +759,13 @@ function buildSummaryHTML(rows) {
     const f = feederByCode[row.Code];
     const name = f ? f.feeder : row.Code;
     const sf = row["SF Start"]
-      ? `${row["SF Start"].slice(0, 5)}-${row["SF End"].slice(0, 5)}`
+      ? formatDuration(row["SF Start"], row["SF End"])
       : "-";
     const esd = row["ESD Start"]
-      ? `${row["ESD Start"].slice(0, 5)}-${row["ESD End"].slice(0, 5)}`
+      ? formatDuration(row["ESD Start"], row["ESD End"])
       : "-";
     const psd = row["PSD Start"]
-      ? `${row["PSD Start"].slice(0, 5)}-${row["PSD End"].slice(0, 5)}`
+      ? formatDuration(row["PSD Start"], row["PSD End"])
       : "-";
     html += `<tr><td>${name}</td><td>${row.TT || "-"}</td><td>${sf}</td><td>${esd}</td><td>${psd}</td></tr>`;
   });
@@ -738,7 +777,10 @@ async function generateScript() {
   autoSaveActiveFeeder();
   const rows = normalizeRowsForScript();
   if (!rows.length) {
-    setStatus("No entries found. Add at least one TT/SF/ESD/PSD entry.", "error");
+    setStatus(
+      "No entries found. Add at least one TT/SF/ESD/PSD entry.",
+      "error",
+    );
     lastGeneratedScript = "";
     return;
   }
@@ -755,19 +797,136 @@ async function generateScript() {
     return;
   }
 
+  // Check for long SF/ESD durations (> 2 hours)
+  const durationWarnings = checkLongDurations(rows);
+  if (durationWarnings.length) {
+    const proceed = await showDurationWarning(durationWarnings);
+    if (!proceed) {
+      setStatus("Script generation cancelled.", "info");
+      lastGeneratedScript = "";
+      return;
+    }
+  }
+
   lastGeneratedScript = buildAutomationScript(rows);
   const copied = await writeToClipboard(lastGeneratedScript);
   setStatus(
     copied
       ? "Script generated and copied to clipboard."
       : "Script generated, but clipboard copy failed.",
-    copied ? "success" : "error"
+    copied ? "success" : "error",
   );
+}
+
+// Soft validation: reason required when time is filled (except TT)
+function runSoftValidation() {
+  const sections = [
+    { start: el.sfStart, end: el.sfEnd, reason: el.sfReason },
+    { start: el.esdStart, end: el.esdEnd, reason: el.esdReason },
+    { start: el.psdStart, end: el.psdEnd, reason: el.psdReason },
+  ];
+
+  sections.forEach(({ start, end, reason }) => {
+    const hasTime = start.value || end.value;
+    const hasReason = reason.value.trim();
+    const hint = reason.parentElement.querySelector(".validation-hint");
+
+    if (hasTime && !hasReason) {
+      reason.classList.add("validation-warn");
+      if (!hint) {
+        const span = document.createElement("span");
+        span.className = "validation-hint";
+        span.textContent = "Reason is required when time is provided";
+        reason.parentElement.appendChild(span);
+      }
+    } else {
+      reason.classList.remove("validation-warn");
+      if (hint) hint.remove();
+    }
+  });
+}
+
+// Check SF/ESD entries for duration > 2 hours, return warnings
+function checkLongDurations(rows) {
+  const warnings = [];
+  rows.forEach((row) => {
+    const f = feederByCode[row.Code];
+    const name = f ? f.feeder : row.Code;
+
+    [
+      ["SF", "SF Start", "SF End"],
+      ["ESD", "ESD Start", "ESD End"],
+    ].forEach(([label, startKey, endKey]) => {
+      const start = row[startKey];
+      const end = row[endKey];
+      if (!start || !end) return;
+      const startMins = toMinutes(start);
+      const endMins = toMinutes(end);
+      let diff = endMins - startMins;
+      if (diff < 0) diff += 1440;
+      if (diff > 120) {
+        const hrs = (diff / 60).toFixed(1);
+        warnings.push(
+          `${name} — ${label}: ${start.slice(0, 5)} to ${end.slice(0, 5)} (${hrs} hrs)`,
+        );
+      }
+    });
+  });
+  return warnings;
+}
+
+function toMinutes(t) {
+  const p = t.split(":").map(Number);
+  return p[0] * 60 + (p[1] || 0);
+}
+
+// Show warning modal and return promise<boolean>
+function showDurationWarning(warnings) {
+  const overlay = document.getElementById("warningOverlay");
+  const list = document.getElementById("warningList");
+  const msg = document.getElementById("warningMessage");
+
+  msg.textContent =
+    "The following entries have SF or ESD duration exceeding 2 hours:";
+  list.innerHTML = warnings.map((w) => `<li>${w}</li>`).join("");
+  overlay.style.display = "flex";
+
+  return new Promise((resolve) => {
+    const continueBtn = document.getElementById("warningContinue");
+    const cancelBtn = document.getElementById("warningCancel");
+    function cleanup() {
+      continueBtn.removeEventListener("click", onContinue);
+      cancelBtn.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onOverlayClick);
+      overlay.style.display = "none";
+    }
+    function onContinue() {
+      cleanup();
+      resolve(true);
+    }
+    function onCancel() {
+      cleanup();
+      resolve(false);
+    }
+    function onOverlayClick(e) {
+      if (e.target === overlay) {
+        cleanup();
+        resolve(false);
+      }
+    }
+    continueBtn.addEventListener("click", onContinue);
+    cancelBtn.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onOverlayClick);
+  });
 }
 
 // P8: Debounce bumped from 180ms to 500ms
 function bindLiveAutoSave() {
-  const debouncedSave = debounce(() => autoSaveActiveFeeder(), 500);
+  const debouncedSave = debounce(() => {
+    autoSaveActiveFeeder();
+    runSoftValidation();
+  }, 500);
+  const debouncedValidation = debounce(() => runSoftValidation(), 200);
   const trackedFields = [
     el.tt,
     el.ttReason,
@@ -785,6 +944,7 @@ function bindLiveAutoSave() {
   trackedFields.forEach((field) => {
     if (!field) return;
     field.addEventListener("input", debouncedSave);
+    field.addEventListener("input", debouncedValidation);
     field.addEventListener("change", debouncedSave);
   });
 }
@@ -819,7 +979,10 @@ el.generateBtn.addEventListener("click", generateScript);
 // P7: Reduced timeout from 300s to 60s
 async function submitToServer(rows) {
   const runAutoBtn = document.getElementById("runAutoBtn");
-  setStatus('<span class="spinner"></span> Sending to automation server...', "info");
+  setStatus(
+    '<span class="spinner"></span> Sending to automation server...',
+    "info",
+  );
 
   try {
     runAutoBtn.disabled = true;
@@ -852,7 +1015,7 @@ async function submitToServer(rows) {
     } catch (fetchErr) {
       if (fetchErr.name === "AbortError") {
         throw new Error(
-          "Request timed out after 60s. Check the DGVCL site manually."
+          "Request timed out after 60s. Check the DGVCL site manually.",
         );
       }
       throw new Error(`Network error: ${fetchErr.message}`);
@@ -898,7 +1061,7 @@ if (runAutoBtn) {
     if (!rows.length) {
       setStatus(
         "No entries found. Add at least one TT/SF/ESD/PSD entry.",
-        "error"
+        "error",
       );
       return;
     }
@@ -912,6 +1075,16 @@ if (runAutoBtn) {
           : "";
       setStatus(`Fix data before submitting: ${preview}${more}`, "error");
       return;
+    }
+
+    // Check for long SF/ESD durations (> 2 hours)
+    const durationWarnings = checkLongDurations(rows);
+    if (durationWarnings.length) {
+      const proceed = await showDurationWarning(durationWarnings);
+      if (!proceed) {
+        setStatus("Submission cancelled.", "info");
+        return;
+      }
     }
 
     // Show summary modal for review
@@ -978,6 +1151,11 @@ if (activityDateInput) {
 document.addEventListener("keydown", (e) => {
   // Escape: close summary modal
   if (e.key === "Escape") {
+    const warningOverlay = document.getElementById("warningOverlay");
+    if (warningOverlay && warningOverlay.style.display !== "none") {
+      document.getElementById("warningCancel").click();
+      return;
+    }
     const overlay = document.getElementById("summaryOverlay");
     if (overlay && overlay.style.display !== "none") {
       overlay.style.display = "none";
