@@ -3,22 +3,29 @@ package main
 import (
 	"context"
 	"crypto/sha1"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"math"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 )
+
+//go:embed index.html app.js styles.css
+var staticFiles embed.FS
 
 var baseURL = "http://das.dgvcl.in/DailyActivity"
 
@@ -539,6 +546,25 @@ func runScriptHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func openBrowser(url string) {
+	var cmd string
+	var args []string
+	switch runtime.GOOS {
+	case "windows":
+		cmd = "rundll32"
+		args = []string{"url.dll,FileProtocolHandler", url}
+	case "darwin":
+		cmd = "open"
+		args = []string{url}
+	default:
+		cmd = "xdg-open"
+		args = []string{url}
+	}
+	if err := exec.Command(cmd, args...).Start(); err != nil {
+		log.Printf("could not open browser: %v (open %s manually)", err, url)
+	}
+}
+
 // ==========================================
 // MAIN — HTTP Server
 // ==========================================
@@ -554,6 +580,9 @@ func main() {
 		http.TimeoutHandler(http.HandlerFunc(runScriptHandler), 60*time.Second,
 			`{"success":false,"message":"request timeout"}`).ServeHTTP))
 
+	staticFS, _ := fs.Sub(staticFiles, ".")
+	mux.Handle("/", http.FileServer(http.FS(staticFS)))
+
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: mux,
@@ -565,6 +594,10 @@ func main() {
 			log.Fatal(err)
 		}
 	}()
+
+	if os.Getenv("HEADLESS") == "" {
+		openBrowser("http://localhost:" + port)
+	}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
