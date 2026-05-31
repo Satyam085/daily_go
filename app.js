@@ -71,18 +71,22 @@ let visibleFeederCodes = [];
 let selectedFeederCode = "";
 let lastGeneratedScript = "";
 
+const debouncedSave = debounce(() => {
+  autoSaveActiveFeeder();
+  runSoftValidation();
+}, 500);
+const debouncedValidation = debounce(() => runSoftValidation(), 200);
+
 const el = {
   substationTabs: document.getElementById("substationTabs"),
   feederPills: document.getElementById("feederPills"),
   selectedFeeder: document.getElementById("selectedFeeder"),
   tt: document.getElementById("tt"),
   ttReason: document.getElementById("ttReason"),
-  sfStart: document.getElementById("sfStart"),
-  sfEnd: document.getElementById("sfEnd"),
-  sfReason: document.getElementById("sfReason"),
-  esdStart: document.getElementById("esdStart"),
-  esdEnd: document.getElementById("esdEnd"),
-  esdReason: document.getElementById("esdReason"),
+  sfList: document.getElementById("sfList"),
+  addSfBtn: document.getElementById("addSfBtn"),
+  esdList: document.getElementById("esdList"),
+  addEsdBtn: document.getElementById("addEsdBtn"),
   psdStart: document.getElementById("psdStart"),
   psdEnd: document.getElementById("psdEnd"),
   psdReason: document.getElementById("psdReason"),
@@ -139,7 +143,34 @@ function hydrateSessionState() {
   if (restoredEntries && typeof restoredEntries === "object") {
     Object.keys(restoredEntries).forEach((code) => {
       if (feederByCode[code]) {
-        entries.set(code, restoredEntries[code]);
+        const entry = restoredEntries[code];
+        // Migration to multiple SFs/ESDs
+        if (!entry.SFs && (entry["SF Start"] || entry["SF End"] || entry["SF Reason"])) {
+          entry.SFs = [{
+            Start: entry["SF Start"] || "",
+            End: entry["SF End"] || "",
+            Reason: entry["SF Reason"] || ""
+          }];
+          delete entry["SF Start"];
+          delete entry["SF End"];
+          delete entry["SF Reason"];
+        } else if (!entry.SFs) {
+          entry.SFs = [];
+        }
+
+        if (!entry.ESDs && (entry["ESD Start"] || entry["ESD End"] || entry["ESD Reason"])) {
+          entry.ESDs = [{
+            Start: entry["ESD Start"] || "",
+            End: entry["ESD End"] || "",
+            Reason: entry["ESD Reason"] || ""
+          }];
+          delete entry["ESD Start"];
+          delete entry["ESD End"];
+          delete entry["ESD Reason"];
+        } else if (!entry.ESDs) {
+          entry.ESDs = [];
+        }
+        entries.set(code, entry);
       }
     });
   }
@@ -170,8 +201,8 @@ function toHHMM(value) {
 function hasAnyEvent(entry) {
   return (
     Number(entry.TT || 0) > 0 ||
-    entry["SF Start"] ||
-    entry["ESD Start"] ||
+    (entry.SFs && entry.SFs.length > 0) ||
+    (entry.ESDs && entry.ESDs.length > 0) ||
     entry["PSD Start"]
   );
 }
@@ -273,21 +304,117 @@ function setFeederMeta(code) {
 function clearFormFields() {
   el.tt.value = "";
   el.ttReason.value = "";
-  el.sfStart.value = "";
-  el.sfEnd.value = "";
-  el.sfReason.value = "";
-  el.esdStart.value = "";
-  el.esdEnd.value = "";
-  el.esdReason.value = "";
+  el.sfList.innerHTML = "";
+  el.esdList.innerHTML = "";
   el.psdStart.value = "";
   el.psdEnd.value = "";
   el.psdReason.value = "";
-  // Clear validation hints
-  [el.sfReason, el.esdReason, el.psdReason].forEach((r) => {
-    r.classList.remove("validation-warn");
-    const hint = r.parentElement.querySelector(".validation-hint");
-    if (hint) hint.remove();
+}
+
+function createSfRow(start = "", end = "", reason = "") {
+  const row = document.createElement("div");
+  row.className = "dynamic-row";
+  row.innerHTML = `
+    <label>
+      SF Start
+      <input type="time" class="sf-start" value="${toHHMM(start)}">
+    </label>
+    <label>
+      SF End
+      <input type="time" class="sf-end" value="${toHHMM(end)}">
+    </label>
+    <div class="reason-container">
+      <label class="reason-field">
+        SF Reason
+        <input type="text" class="sf-reason" placeholder="Reason" value="${reason}">
+      </label>
+      <button type="button" class="remove-btn" aria-label="Remove SF">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+      </button>
+    </div>
+  `;
+
+  const inputs = row.querySelectorAll("input");
+  inputs.forEach((input) => {
+    input.addEventListener("input", debouncedSave);
+    input.addEventListener("input", debouncedValidation);
+    input.addEventListener("change", debouncedSave);
   });
+
+  row.querySelector(".remove-btn").addEventListener("click", () => {
+    row.remove();
+    saveCurrentEntry();
+    runSoftValidation();
+  });
+
+  el.sfList.appendChild(row);
+}
+
+function createEsdRow(start = "", end = "", reason = "") {
+  const row = document.createElement("div");
+  row.className = "dynamic-row";
+  row.innerHTML = `
+    <label>
+      ESD Start
+      <input type="time" class="esd-start" value="${toHHMM(start)}">
+    </label>
+    <label>
+      ESD End
+      <input type="time" class="esd-end" value="${toHHMM(end)}">
+    </label>
+    <div class="reason-container">
+      <label class="reason-field">
+        ESD Reason
+        <input type="text" class="esd-reason" placeholder="Reason" value="${reason}">
+      </label>
+      <button type="button" class="remove-btn" aria-label="Remove ESD">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+      </button>
+    </div>
+  `;
+
+  const inputs = row.querySelectorAll("input");
+  inputs.forEach((input) => {
+    input.addEventListener("input", debouncedSave);
+    input.addEventListener("input", debouncedValidation);
+    input.addEventListener("change", debouncedSave);
+  });
+
+  row.querySelector(".remove-btn").addEventListener("click", () => {
+    row.remove();
+    saveCurrentEntry();
+    runSoftValidation();
+  });
+
+  el.esdList.appendChild(row);
+}
+
+function getSfsFromUI() {
+  const rows = el.sfList.querySelectorAll(".dynamic-row");
+  const sfs = [];
+  rows.forEach((row) => {
+    const start = row.querySelector(".sf-start").value;
+    const end = row.querySelector(".sf-end").value;
+    const reason = row.querySelector(".sf-reason").value.trim();
+    if (start || end || reason) {
+      sfs.push({ Start: toHHMMSS(start), End: toHHMMSS(end), Reason: reason });
+    }
+  });
+  return sfs;
+}
+
+function getEsdsFromUI() {
+  const rows = el.esdList.querySelectorAll(".dynamic-row");
+  const esds = [];
+  rows.forEach((row) => {
+    const start = row.querySelector(".esd-start").value;
+    const end = row.querySelector(".esd-end").value;
+    const reason = row.querySelector(".esd-reason").value.trim();
+    if (start || end || reason) {
+      esds.push({ Start: toHHMMSS(start), End: toHHMMSS(end), Reason: reason });
+    }
+  });
+  return esds;
 }
 
 // U4: Auto-expand details with data + U13: Focus management
@@ -304,21 +431,33 @@ function loadEntryToForm(code) {
       if (label !== "TT") d.removeAttribute("open");
       return;
     }
-    if (label === "SF" && entry["SF Start"]) d.setAttribute("open", "");
-    else if (label === "ESD" && entry["ESD Start"]) d.setAttribute("open", "");
+    if (label === "SF" && entry.SFs && entry.SFs.length > 0) d.setAttribute("open", "");
+    else if (label === "ESD" && entry.ESDs && entry.ESDs.length > 0) d.setAttribute("open", "");
     else if (label === "PSD" && entry["PSD Start"]) d.setAttribute("open", "");
     else if (label !== "TT") d.removeAttribute("open");
   });
 
-  if (!entry) return;
+  if (!entry) {
+    createSfRow();
+    createEsdRow();
+    return;
+  }
+
   el.tt.value = entry.TT || "";
   el.ttReason.value = entry["TT Reason"] || "";
-  el.sfStart.value = toHHMM(entry["SF Start"]);
-  el.sfEnd.value = toHHMM(entry["SF End"]);
-  el.sfReason.value = entry["SF Reason"] || "";
-  el.esdStart.value = toHHMM(entry["ESD Start"]);
-  el.esdEnd.value = toHHMM(entry["ESD End"]);
-  el.esdReason.value = entry["ESD Reason"] || "";
+
+  if (entry.SFs && entry.SFs.length > 0) {
+    entry.SFs.forEach((sf) => createSfRow(sf.Start, sf.End, sf.Reason));
+  } else {
+    createSfRow();
+  }
+
+  if (entry.ESDs && entry.ESDs.length > 0) {
+    entry.ESDs.forEach((esd) => createEsdRow(esd.Start, esd.End, esd.Reason));
+  } else {
+    createEsdRow();
+  }
+
   el.psdStart.value = toHHMM(entry["PSD Start"]);
   el.psdEnd.value = toHHMM(entry["PSD End"]);
   el.psdReason.value = entry["PSD Reason"] || "";
@@ -347,12 +486,8 @@ function saveCurrentEntry() {
     Code: feeder.code,
     TT: ttValue,
     "TT Reason": ttReason,
-    "SF Start": toHHMMSS(el.sfStart.value),
-    "SF End": toHHMMSS(el.sfEnd.value),
-    "SF Reason": el.sfReason.value.trim(),
-    "ESD Start": toHHMMSS(el.esdStart.value),
-    "ESD End": toHHMMSS(el.esdEnd.value),
-    "ESD Reason": el.esdReason.value.trim(),
+    SFs: getSfsFromUI(),
+    ESDs: getEsdsFromUI(),
     "PSD Start": toHHMMSS(el.psdStart.value),
     "PSD End": toHHMMSS(el.psdEnd.value),
     "PSD Reason": el.psdReason.value.trim(),
@@ -368,23 +503,44 @@ function saveCurrentEntry() {
 }
 
 function normalizeRowsForScript() {
-  return feederMaster
-    .map((f) => entries.get(f.code))
-    .filter(Boolean)
-    .map((r) => ({
-      Code: r.Code,
-      TT: r.TT,
-      "TT Reason": r["TT Reason"],
-      "SF Start": r["SF Start"],
-      "SF End": r["SF End"],
-      "SF Reason": r["SF Reason"],
-      "ESD Start": r["ESD Start"],
-      "ESD End": r["ESD End"],
-      "ESD Reason": r["ESD Reason"],
-      "PSD Start": r["PSD Start"],
-      "PSD End": r["PSD End"],
-      "PSD Reason": r["PSD Reason"],
-    }));
+  const flattened = [];
+  feederMaster.forEach((f) => {
+    const r = entries.get(f.code);
+    if (!r) return;
+
+    const sfs = r.SFs || [];
+    const esds = r.ESDs || [];
+
+    const maxLen = Math.max(1, sfs.length, esds.length);
+
+    for (let i = 0; i < maxLen; i++) {
+      const row = {
+        Code: r.Code,
+        TT: i === 0 ? r.TT : "",
+        "TT Reason": i === 0 ? r["TT Reason"] : "",
+        "SF Start": sfs[i] ? sfs[i].Start : "",
+        "SF End": sfs[i] ? sfs[i].End : "",
+        "SF Reason": sfs[i] ? sfs[i].Reason : "",
+        "ESD Start": esds[i] ? esds[i].Start : "",
+        "ESD End": esds[i] ? esds[i].End : "",
+        "ESD Reason": esds[i] ? esds[i].Reason : "",
+        "PSD Start": i === 0 ? r["PSD Start"] : "",
+        "PSD End": i === 0 ? r["PSD End"] : "",
+        "PSD Reason": i === 0 ? r["PSD Reason"] : "",
+      };
+
+      const hasEvent =
+        row.TT ||
+        row["SF Start"] ||
+        row["ESD Start"] ||
+        row["PSD Start"];
+
+      if (hasEvent) {
+        flattened.push(row);
+      }
+    }
+  });
+  return flattened;
 }
 
 function isValidHHMMSS(value) {
@@ -750,6 +906,14 @@ function formatDuration(start, end) {
   return `${m}m`;
 }
 
+function formatEventCell(start, end, reason) {
+  if (!start && !end) return "-";
+  const timeStr = `${toHHMM(start)} - ${toHHMM(end)}`;
+  const duration = formatDuration(start, end);
+  const reasonStr = reason ? `<br><small style="color:var(--muted)">${reason}</small>` : "";
+  return `<strong>${timeStr}</strong> <small>(${duration})</small>${reasonStr}`;
+}
+
 // U11: Build summary table HTML for review modal
 function buildSummaryHTML(rows) {
   let html =
@@ -757,16 +921,20 @@ function buildSummaryHTML(rows) {
   rows.forEach((row) => {
     const f = feederByCode[row.Code];
     const name = f ? f.feeder : row.Code;
-    const sf = row["SF Start"]
-      ? formatDuration(row["SF Start"], row["SF End"])
-      : "-";
-    const esd = row["ESD Start"]
-      ? formatDuration(row["ESD Start"], row["ESD End"])
-      : "-";
-    const psd = row["PSD Start"]
-      ? formatDuration(row["PSD Start"], row["PSD End"])
-      : "-";
-    html += `<tr><td>${name}</td><td>${row.TT || "-"}</td><td>${sf}</td><td>${esd}</td><td>${psd}</td></tr>`;
+    
+    let ttCell = "-";
+    if (row.TT) {
+      ttCell = `<strong>${row.TT}</strong>`;
+      if (row["TT Reason"]) {
+        ttCell += `<br><small style="color:var(--muted)">${row["TT Reason"]}</small>`;
+      }
+    }
+
+    const sfCell = formatEventCell(row["SF Start"], row["SF End"], row["SF Reason"]);
+    const esdCell = formatEventCell(row["ESD Start"], row["ESD End"], row["ESD Reason"]);
+    const psdCell = formatEventCell(row["PSD Start"], row["PSD End"], row["PSD Reason"]);
+
+    html += `<tr><td><strong>${name}</strong></td><td>${ttCell}</td><td>${sfCell}</td><td>${esdCell}</td><td>${psdCell}</td></tr>`;
   });
   html += "</tbody></table>";
   return html;
@@ -817,32 +985,48 @@ async function generateScript() {
   );
 }
 
+function validateSingleRow(start, end, reason) {
+  if (!start || !end || !reason) return;
+  const hasTime = start.value || end.value;
+  const hasReason = reason.value.trim();
+  const hint = reason.parentElement.querySelector(".validation-hint");
+
+  if (hasTime && !hasReason) {
+    reason.classList.add("validation-warn");
+    if (!hint) {
+      const span = document.createElement("span");
+      span.className = "validation-hint";
+      span.textContent = "Reason is required when time is provided";
+      reason.parentElement.appendChild(span);
+    }
+  } else {
+    reason.classList.remove("validation-warn");
+    if (hint) hint.remove();
+  }
+}
+
 // Soft validation: reason required when time is filled (except TT)
 function runSoftValidation() {
-  const sections = [
-    { start: el.sfStart, end: el.sfEnd, reason: el.sfReason },
-    { start: el.esdStart, end: el.esdEnd, reason: el.esdReason },
-    { start: el.psdStart, end: el.psdEnd, reason: el.psdReason },
-  ];
-
-  sections.forEach(({ start, end, reason }) => {
-    const hasTime = start.value || end.value;
-    const hasReason = reason.value.trim();
-    const hint = reason.parentElement.querySelector(".validation-hint");
-
-    if (hasTime && !hasReason) {
-      reason.classList.add("validation-warn");
-      if (!hint) {
-        const span = document.createElement("span");
-        span.className = "validation-hint";
-        span.textContent = "Reason is required when time is provided";
-        reason.parentElement.appendChild(span);
-      }
-    } else {
-      reason.classList.remove("validation-warn");
-      if (hint) hint.remove();
-    }
+  // Validate dynamic SF rows
+  const sfRows = el.sfList.querySelectorAll(".dynamic-row");
+  sfRows.forEach((row) => {
+    const start = row.querySelector(".sf-start");
+    const end = row.querySelector(".sf-end");
+    const reason = row.querySelector(".sf-reason");
+    validateSingleRow(start, end, reason);
   });
+
+  // Validate dynamic ESD rows
+  const esdRows = el.esdList.querySelectorAll(".dynamic-row");
+  esdRows.forEach((row) => {
+    const start = row.querySelector(".esd-start");
+    const end = row.querySelector(".esd-end");
+    const reason = row.querySelector(".esd-reason");
+    validateSingleRow(start, end, reason);
+  });
+
+  // Validate static PSD fields
+  validateSingleRow(el.psdStart, el.psdEnd, el.psdReason);
 }
 
 // Check SF/ESD entries for duration > 2 hours, return warnings
@@ -921,20 +1105,9 @@ function showDurationWarning(warnings) {
 
 // P8: Debounce bumped from 180ms to 500ms
 function bindLiveAutoSave() {
-  const debouncedSave = debounce(() => {
-    autoSaveActiveFeeder();
-    runSoftValidation();
-  }, 500);
-  const debouncedValidation = debounce(() => runSoftValidation(), 200);
   const trackedFields = [
     el.tt,
     el.ttReason,
-    el.sfStart,
-    el.sfEnd,
-    el.sfReason,
-    el.esdStart,
-    el.esdEnd,
-    el.esdReason,
     el.psdStart,
     el.psdEnd,
     el.psdReason,
@@ -974,6 +1147,14 @@ el.clearBtn.addEventListener("click", () => {
   persistSessionState();
 });
 el.generateBtn.addEventListener("click", generateScript);
+el.addSfBtn.addEventListener("click", () => {
+  createSfRow();
+  saveCurrentEntry();
+});
+el.addEsdBtn.addEventListener("click", () => {
+  createEsdRow();
+  saveCurrentEntry();
+});
 
 // P7: Reduced timeout from 300s to 60s
 async function submitToServer(rows) {
