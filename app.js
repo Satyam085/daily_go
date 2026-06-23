@@ -27,7 +27,7 @@ const MASTER_SCHEDULE_TSV = `322707\tBahej\tAG\tBhimpore\t08:00:00\t16:00:00\t0.
 102503\tBajipura\tAG\tValod\t07:00:00\t15:00:00\t0.02
 102502\tBavli\tAG\tValod\t07:00:00\t15:00:00\t0.02
 102512\tButwada\tJGY\tValod\t00:00:00\t24:00:00\t0.02
-\tDelwada\tJGY\tValod\t00:00:00\t24:00:00\t0.02
+102515\tDelwada\tJGY\tValod\t00:00:00\t24:00:00\t0.02
 102507\tNansad\tAG\tValod\t07:00:00\t15:00:00\t0.02
 102514\tPavran\tAG\tValod\t07:00:00\t15:00:00\t0.02
 102511\tRupvada\tAG\tValod\t07:00:00\t15:00:00\t0.02

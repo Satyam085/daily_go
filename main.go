@@ -71,6 +71,7 @@ var masterScheduleRaw = `322707	Bahej	AG	Bhimpore	08:00:00	16:00:00	0.02
 102503	Bajipura	AG	Valod	07:00:00	15:00:00	0.02
 102502	Bavli	AG	Valod	07:00:00	15:00:00	0.02
 102512	Butwada	JGY	Valod	00:00:00	24:00:00	0.02
+102515	Delwada	JGY	Valod	00:00:00	24:00:00	0.02
 102507	Nansad	AG	Valod	07:00:00	15:00:00	0.02
 102514	Pavran	AG	Valod	07:00:00	15:00:00	0.02
 102511	Rupvada	AG	Valod	07:00:00	15:00:00	0.02
