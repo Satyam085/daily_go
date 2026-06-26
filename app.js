@@ -1,45 +1,45 @@
-const MASTER_SCHEDULE_TSV = `322707\tBahej\tAG\tBhimpore\t08:00:00\t16:00:00\t0.02
+const MASTER_SCHEDULE_TSV = `322707\tBahej\tAG\tBhimpore\t07:00:00\t17:00:00\t0.02
 322704\tBhimpore\tJGY\tBhimpore\t00:00:00\t24:00:00\t0.02
-322706\tHathuka\tAG\tBhimpore\t08:00:00\t16:00:00\t0.02
+322706\tHathuka\tAG\tBhimpore\t07:00:00\t17:00:00\t0.02
 322702\tHill\tHTEX\tBhimpore\t00:00:00\t24:00:00\t0.02
-322701\tKhakhar\tAG\tBhimpore\t08:00:00\t16:00:00\t0.02
-322705\tKumbhiya\tAG\tBhimpore\t08:00:00\t16:00:00\t0.02
+322701\tKhakhar\tAG\tBhimpore\t07:00:00\t17:00:00\t0.02
+322705\tKumbhiya\tAG\tBhimpore\t07:00:00\t17:00:00\t0.02
 322703\tRanveri\tJGY\tBhimpore\t00:00:00\t24:00:00\t0.02
 322708\tSankalp\tHTEX\tBhimpore\t00:00:00\t24:00:00\t0.02
-321106\tKamalchhod\tAG\tBorakhadi\t07:00:00\t15:00:00\t0.02
-329801\tDhodhiya\tAG\tDegama\t07:00:00\t15:00:00\t0.02
-329802\tKokanvad\tAG\tDegama\t07:00:00\t15:00:00\t0.02
+321106\tKamalchhod\tAG\tBorakhadi\t06:00:00\t16:00:00\t0.02
+329801\tDhodhiya\tAG\tDegama\t06:00:00\t16:00:00\t0.02
+329802\tKokanvad\tAG\tDegama\t06:00:00\t16:00:00\t0.02
 329803\tMadhuli\tJGY\tDegama\t00:00:00\t24:00:00\t0.02
 532802\tAndhatri\tJGY\tGodadha\t00:00:00\t24:00:00\t0.02
-532804\tDharampura\tAG\tGodadha\t07:00:00\t15:00:00\t0.02
-532803\tPahad\tAG\tGodadha\t07:00:00\t15:00:00\t0.02
+532804\tDharampura\tAG\tGodadha\t06:00:00\t16:00:00\t0.02
+532803\tPahad\tAG\tGodadha\t06:00:00\t16:00:00\t0.02
 532801\tPatel\tJGY\tGodadha\t00:00:00\t24:00:00\t0.02
-388705\tDungari\tAG\tKelkui\t07:00:00\t15:00:00\t0.02
+388705\tDungari\tAG\tKelkui\t06:00:00\t16:00:00\t0.02
 388703\tGodaun\tJGY\tKelkui\t00:00:00\t24:00:00\t0.02
-388702\tNalotha\tAG\tKelkui\t07:00:00\t15:00:00\t0.02
-388701\tParshi\tAG\tKelkui\t07:00:00\t15:00:00\t0.02
+388702\tNalotha\tAG\tKelkui\t06:00:00\t16:00:00\t0.02
+388701\tParshi\tAG\tKelkui\t06:00:00\t16:00:00\t0.02
 388704\tValmiki\tJGY\tKelkui\t00:00:00\t24:00:00\t0.02
 322205\tAmbach\tJGY\tRupvada\t00:00:00\t24:00:00\t0.02
 322203\tDegama\tJGY\tRupvada\t00:00:00\t24:00:00\t0.02
-322206\tGandhi\tAGSKY\tRupvada\t07:00:00\t15:00:00\t0.02
-322202\tKhanpur\tAGSKY\tRupvada\t07:00:00\t15:00:00\t0.02
-322208\tTad\tAG\tRupvada\t07:00:00\t15:00:00\t0.02
-102503\tBajipura\tAG\tValod\t07:00:00\t15:00:00\t0.02
-102502\tBavli\tAG\tValod\t07:00:00\t15:00:00\t0.02
+322206\tGandhi\tAGSKY\tRupvada\t06:00:00\t16:00:00\t0.02
+322202\tKhanpur\tAGSKY\tRupvada\t06:00:00\t16:00:00\t0.02
+322208\tTad\tAG\tRupvada\t06:00:00\t16:00:00\t0.02
+102503\tBajipura\tAG\tValod\t06:00:00\t16:00:00\t0.02
+102502\tBavli\tAG\tValod\t06:00:00\t16:00:00\t0.02
 102512\tButwada\tJGY\tValod\t00:00:00\t24:00:00\t0.02
 102515\tDelwada\tJGY\tValod\t00:00:00\t24:00:00\t0.02
-102507\tNansad\tAG\tValod\t07:00:00\t15:00:00\t0.02
-102514\tPavran\tAG\tValod\t07:00:00\t15:00:00\t0.02
-102511\tRupvada\tAG\tValod\t07:00:00\t15:00:00\t0.02
-102508\tSiker\tAG\tValod\t07:00:00\t15:00:00\t0.02
+102507\tNansad\tAG\tValod\t06:00:00\t16:00:00\t0.02
+102514\tPavran\tAG\tValod\t06:00:00\t16:00:00\t0.02
+102511\tRupvada\tAG\tValod\t06:00:00\t16:00:00\t0.02
+102508\tSiker\tAG\tValod\t06:00:00\t16:00:00\t0.02
 102504\tSumul\tJGY\tValod\t00:00:00\t24:00:00\t0.02
 102513\tSumul Cattle\tHTEX\tValod\t00:00:00\t24:00:00\t0.02
-102509\tTokarva\tAG\tValod\t07:00:00\t15:00:00\t0.02
+102509\tTokarva\tAG\tValod\t06:00:00\t16:00:00\t0.02
 102501\tValod (T)\tJGY\tValod\t00:00:00\t24:00:00\t0.02
 102506\tVedchhi\tJGY\tValod\t00:00:00\t24:00:00\t0.02
 140202\tBuhari\tJGY\tVirpore\t00:00:00\t24:00:00\t0.02
-140206\tDadariya\tAG\tVirpore\t07:00:00\t15:00:00\t0.02
-140204\tVirpur\tAG\tVirpore\t07:00:00\t15:00:00\t0.02`;
+140206\tDadariya\tAG\tVirpore\t06:00:00\t16:00:00\t0.02
+140204\tVirpur\tAG\tVirpore\t06:00:00\t16:00:00\t0.02`;
 
 function parseMaster(tsv) {
   return tsv
