@@ -42,48 +42,48 @@ type FeederMaster struct {
 
 var masterDB = map[string]FeederMaster{}
 
-var masterScheduleRaw = `322707	Bahej	AG	Bhimpore	08:00:00	16:00:00	0.02
+var masterScheduleRaw = `322707	Bahej	AG	Bhimpore	07:00:00	17:00:00	0.02
 322704	Bhimpore	JGY	Bhimpore	00:00:00	24:00:00	0.02
-322706	Hathuka	AG	Bhimpore	08:00:00	16:00:00	0.02
+322706	Hathuka	AG	Bhimpore	07:00:00	17:00:00	0.02
 322702	Hill	HTEX	Bhimpore	00:00:00	24:00:00	0.02
-322701	Khakhar	AG	Bhimpore	08:00:00	16:00:00	0.02
-322705	Kumbhiya	AG	Bhimpore	08:00:00	16:00:00	0.02
+322701	Khakhar	AG	Bhimpore	07:00:00	17:00:00	0.02
+322705	Kumbhiya	AG	Bhimpore	07:00:00	17:00:00	0.02
 322703	Ranveri	JGY	Bhimpore	00:00:00	24:00:00	0.02
 322708	Sankalp	HTEX	Bhimpore	00:00:00	24:00:00	0.02
-321106	Kamalchhod	AG	Borakhadi	07:00:00	15:00:00	0.02
-329801	Dhodhiya	AG	Degama	07:00:00	15:00:00	0.02
-329802	Kokanvad	AG	Degama	07:00:00	15:00:00	0.02
+321106	Kamalchhod	AG	Borakhadi	06:00:00	16:00:00	0.02
+329801	Dhodhiya	AG	Degama	06:00:00	16:00:00	0.02
+329802	Kokanvad	AG	Degama	06:00:00	16:00:00	0.02
 329803	Madhuli	JGY	Degama	00:00:00	24:00:00	0.02
 532802	Andhatri	JGY	Godadha	00:00:00	24:00:00	0.02
-532804	Dharampura	AG	Godadha	07:00:00	15:00:00	0.02
-532803	Pahad	AG	Godadha	07:00:00	15:00:00	0.02
+532804	Dharampura	AG	Godadha	06:00:00	16:00:00	0.02
+532803	Pahad	AG	Godadha	06:00:00	16:00:00	0.02
 532801	Patel	JGY	Godadha	00:00:00	24:00:00	0.02
-388705	Dungari	AG	Kelkui	07:00:00	15:00:00	0.02
+388705	Dungari	AG	Kelkui	06:00:00	16:00:00	0.02
 388703	Godaun	JGY	Kelkui	00:00:00	24:00:00	0.02
-388702	Nalotha	AG	Kelkui	07:00:00	15:00:00	0.02
-388701	Parshi	AG	Kelkui	07:00:00	15:00:00	0.02
+388702	Nalotha	AG	Kelkui	06:00:00	16:00:00	0.02
+388701	Parshi	AG	Kelkui	06:00:00	16:00:00	0.02
 388704	Valmiki	JGY	Kelkui	00:00:00	24:00:00	0.02
 322205	Ambach	JGY	Rupvada	00:00:00	24:00:00	0.02
 322203	Degama	JGY	Rupvada	00:00:00	24:00:00	0.02
-322206	Gandhi	AGSKY	Rupvada	07:00:00	15:00:00	0.02
-322202	Khanpur	AGSKY	Rupvada	07:00:00	15:00:00	0.02
-322208	Tad	AG	Rupvada	07:00:00	15:00:00	0.02
-102503	Bajipura	AG	Valod	07:00:00	15:00:00	0.02
-102502	Bavli	AG	Valod	07:00:00	15:00:00	0.02
+322206	Gandhi	AGSKY	Rupvada	06:00:00	16:00:00	0.02
+322202	Khanpur	AGSKY	Rupvada	06:00:00	16:00:00	0.02
+322208	Tad	AG	Rupvada	06:00:00	16:00:00	0.02
+102503	Bajipura	AG	Valod	06:00:00	16:00:00	0.02
+102502	Bavli	AG	Valod	06:00:00	16:00:00	0.02
 102512	Butwada	JGY	Valod	00:00:00	24:00:00	0.02
 102515	Delwada	JGY	Valod	00:00:00	24:00:00	0.02
-102507	Nansad	AG	Valod	07:00:00	15:00:00	0.02
-102514	Pavran	AG	Valod	07:00:00	15:00:00	0.02
-102511	Rupvada	AG	Valod	07:00:00	15:00:00	0.02
-102508	Siker	AG	Valod	07:00:00	15:00:00	0.02
+102507	Nansad	AG	Valod	06:00:00	16:00:00	0.02
+102514	Pavran	AG	Valod	06:00:00	16:00:00	0.02
+102511	Rupvada	AG	Valod	06:00:00	16:00:00	0.02
+102508	Siker	AG	Valod	06:00:00	16:00:00	0.02
 102504	Sumul	JGY	Valod	00:00:00	24:00:00	0.02
 102513	Sumul Cattle	HTEX	Valod	00:00:00	24:00:00	0.02
-102509	Tokarva	AG	Valod	07:00:00	15:00:00	0.02
+102509	Tokarva	AG	Valod	06:00:00	16:00:00	0.02
 102501	Valod (T)	JGY	Valod	00:00:00	24:00:00	0.02
 102506	Vedchhi	JGY	Valod	00:00:00	24:00:00	0.02
 140202	Buhari	JGY	Virpore	00:00:00	24:00:00	0.02
-140206	Dadariya	AG	Virpore	07:00:00	15:00:00	0.02
-140204	Virpur	AG	Virpore	07:00:00	15:00:00	0.02`
+140206	Dadariya	AG	Virpore	06:00:00	16:00:00	0.02
+140204	Virpur	AG	Virpore	06:00:00	16:00:00	0.02`
 
 func init() {
 	for _, line := range strings.Split(masterScheduleRaw, "\n") {
