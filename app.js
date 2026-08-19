@@ -1,4 +1,4 @@
-const MASTER_SCHEDULE_TSV = `322707\tBahej\tAG\tBhimpore\t07:00:00\t17:00:00\t0.02
+const VALOD_SCHEDULE_TSV = `322707\tBahej\tAG\tBhimpore\t07:00:00\t17:00:00\t0.02
 322704\tBhimpore\tJGY\tBhimpore\t00:00:00\t24:00:00\t0.02
 322706\tHathuka\tAG\tBhimpore\t07:00:00\t17:00:00\t0.02
 322702\tHill\tHTEX\tBhimpore\t00:00:00\t24:00:00\t0.02
@@ -41,6 +41,43 @@ const MASTER_SCHEDULE_TSV = `322707\tBahej\tAG\tBhimpore\t07:00:00\t17:00:00\t0.
 140206\tDadariya\tAG\tVirpore\t06:00:00\t16:00:00\t0.02
 140204\tVirpur\tAG\tVirpore\t06:00:00\t16:00:00\t0.02`;
 
+const PIPODRA_SCHEDULE_TSV = `171901\tRadhe Feeder\tINDU\tPalod2\t00:00:00\t24:00:00\t2
+171908\tSilver\tINDU\tPalod2\t00:00:00\t24:00:00\t2
+21501\tKim Char Rasta\tINDU\tPalod\t00:00:00\t24:00:00\t2
+21516\tMahatma Ind\tINDU\tPalod\t00:00:00\t24:00:00\t2
+21517\tPanchdev Ind\tINDU\tPalod\t00:00:00\t24:00:00\t2
+21514\tRajkamal\tINDU\tPalod\t00:00:00\t24:00:00\t2
+21515\tSamir\tINDU\tPalod\t00:00:00\t24:00:00\t2
+22916\tBalaji Sayan\tHTEXP\tPipodra\t00:00:00\t24:00:00\t2
+22905\tDhara\tINDU\tPipodra\t00:00:00\t24:00:00\t2
+22906\tKaranj\tJGY\tPipodra\t00:00:00\t24:00:00\t2
+22919\tKrishna\tINDU\tPipodra\t00:00:00\t24:00:00\t2
+22922\tKuber\tHTEXP\tPipodra\t00:00:00\t24:00:00\t2
+22903\tMadhav\tINDU\tPipodra\t00:00:00\t24:00:00\t2
+22912\tMansi\tHTEXP\tPipodra\t00:00:00\t24:00:00\t2
+22901\tNijanand\tINDU\tPipodra\t00:00:00\t24:00:00\t2
+22907\tPipodara\tINDU\tPipodra\t00:00:00\t24:00:00\t2
+22915\tPrince\tINDU\tPipodra\t00:00:00\t24:00:00\t2
+22924\tRushikesh Ind\tINDU\tPipodra\t00:00:00\t24:00:00\t2
+22918\tShree Ram\tINDU\tPipodra\t00:00:00\t24:00:00\t2
+22920\tShyam\tINDU\tPipodra\t00:00:00\t24:00:00\t2
+22917\tSumilone-2\tHTEXP\tPipodra\t00:00:00\t24:00:00\t2
+22921\tVardhman\tHTEXP\tPipodra\t00:00:00\t24:00:00\t2
+22923\tVidhata\tINDU\tPipodra\t00:00:00\t24:00:00\t2
+310905\tAhura\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
+310911\tBansari\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
+310906\tGanesh\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
+310910\tGeneral\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
+310901\tKarmeshwar\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
+310903\tSaburi\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
+310912\tSavitri\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
+310908\tShri Om Ind\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
+310902\tSomeshwar\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
+310904\tTirupati\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
+310909\tVraj Ind\tINDU\tPipodra2\t00:00:00\t24:00:00\t2`;
+
+const SUBDIVISIONS = { Valod: VALOD_SCHEDULE_TSV, Pipodra: PIPODRA_SCHEDULE_TSV };
+
 function parseMaster(tsv) {
   return tsv
     .trim()
@@ -60,16 +97,28 @@ function parseMaster(tsv) {
     .filter((f) => f.code);
 }
 
-const feederMaster = parseMaster(MASTER_SCHEDULE_TSV);
-const feederByCode = Object.fromEntries(feederMaster.map((f) => [f.code, f]));
+const subdivisionNames = Object.keys(SUBDIVISIONS);
+let activeSubdivision = subdivisionNames[0] || "";
+let feederMaster = [];
+let feederByCode = {};
+let substations = [];
 const entries = new Map();
-const substations = [...new Set(feederMaster.map((f) => f.substation))].sort();
 const API_BASE_URL = "";
 const SESSION_STORAGE_KEY = "das_automation_session_v1";
-let activeSubstation = substations[0] || "";
+let activeSubstation = "";
 let visibleFeederCodes = [];
 let selectedFeederCode = "";
 let lastGeneratedScript = "";
+
+// Re-derive feeder list/tabs for whichever subdivision is active.
+function loadSubdivision(name) {
+  activeSubdivision = SUBDIVISIONS[name] ? name : subdivisionNames[0];
+  feederMaster = parseMaster(SUBDIVISIONS[activeSubdivision]);
+  feederByCode = Object.fromEntries(feederMaster.map((f) => [f.code, f]));
+  substations = [...new Set(feederMaster.map((f) => f.substation))].sort();
+  activeSubstation = substations[0] || "";
+}
+loadSubdivision(activeSubdivision);
 
 const debouncedSave = debounce(() => {
   autoSaveActiveFeeder();
@@ -78,6 +127,7 @@ const debouncedSave = debounce(() => {
 const debouncedValidation = debounce(() => runSoftValidation(), 200);
 
 const el = {
+  subdivisionTabs: document.getElementById("subdivisionTabs"),
   substationTabs: document.getElementById("substationTabs"),
   feederPills: document.getElementById("feederPills"),
   selectedFeeder: document.getElementById("selectedFeeder"),
@@ -125,6 +175,7 @@ function persistSessionState() {
     });
     const snapshot = {
       date: getTodayLocalDate(),
+      activeSubdivision,
       activeSubstation,
       selectedFeederCode,
       entries: byCode,
@@ -138,6 +189,10 @@ function persistSessionState() {
 function hydrateSessionState() {
   const snapshot = loadSessionStateForToday();
   if (!snapshot) return;
+
+  if (snapshot.activeSubdivision && SUBDIVISIONS[snapshot.activeSubdivision]) {
+    loadSubdivision(snapshot.activeSubdivision);
+  }
 
   const restoredEntries = snapshot.entries;
   if (restoredEntries && typeof restoredEntries === "object") {
@@ -214,6 +269,20 @@ function substationHasData(name) {
       const entry = entries.get(f.code);
       return entry && hasAnyEvent(entry);
     });
+}
+
+function populateSubdivisions() {
+  el.subdivisionTabs.innerHTML = "";
+  subdivisionNames.forEach((name) => {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = `pill substation-tab${name === activeSubdivision ? " active" : ""}`;
+    tab.dataset.subdivision = name;
+    tab.textContent = name;
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", name === activeSubdivision ? "true" : "false");
+    el.subdivisionTabs.appendChild(tab);
+  });
 }
 
 // U9: Render substation tabs instead of select dropdown
@@ -597,7 +666,7 @@ function validateRowsForScript(rows) {
 
 function buildAutomationScript(rows) {
   const rowsJson = JSON.stringify(rows, null, 2);
-  const masterScheduleJson = JSON.stringify(MASTER_SCHEDULE_TSV);
+  const masterScheduleJson = JSON.stringify(SUBDIVISIONS[activeSubdivision]);
 
   return `// ==========================================
 // 1. MASTER SCHEDULE DATABASE
@@ -1121,6 +1190,17 @@ function bindLiveAutoSave() {
   });
 }
 
+el.subdivisionTabs.addEventListener("click", (e) => {
+  const tab = e.target.closest("button[data-subdivision]");
+  if (!tab || tab.dataset.subdivision === activeSubdivision) return;
+  autoSaveActiveFeeder();
+  loadSubdivision(tab.dataset.subdivision);
+  populateSubdivisions();
+  populateSubstations();
+  renderFeederPills();
+  persistSessionState();
+});
+
 // U9: Substation tabs click handler
 el.substationTabs.addEventListener("click", (e) => {
   const tab = e.target.closest("button[data-substation]");
@@ -1189,7 +1269,7 @@ async function submitToServer(rows) {
       res = await fetch(`${API_BASE_URL}/api/run-script`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows, activityDate: formattedDate }),
+        body: JSON.stringify({ rows, activityDate: formattedDate, subdivision: activeSubdivision }),
         signal: controller.signal,
       });
     } catch (fetchErr) {
@@ -1314,6 +1394,7 @@ if (runAutoBtn) {
 // INIT
 // ==========================================
 hydrateSessionState();
+populateSubdivisions();
 populateSubstations();
 renderFeederPills();
 if (selectedFeederCode) loadEntryToForm(selectedFeederCode);

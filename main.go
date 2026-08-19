@@ -85,8 +85,55 @@ var masterScheduleRaw = `322707	Bahej	AG	Bhimpore	07:00:00	17:00:00	0.02
 140206	Dadariya	AG	Virpore	06:00:00	16:00:00	0.02
 140204	Virpur	AG	Virpore	06:00:00	16:00:00	0.02`
 
+var pipodraScheduleRaw = `171901	Radhe Feeder	INDU	Palod2	00:00:00	24:00:00	2
+171908	Silver	INDU	Palod2	00:00:00	24:00:00	2
+21501	Kim Char Rasta	INDU	Palod	00:00:00	24:00:00	2
+21516	Mahatma Ind	INDU	Palod	00:00:00	24:00:00	2
+21517	Panchdev Ind	INDU	Palod	00:00:00	24:00:00	2
+21514	Rajkamal	INDU	Palod	00:00:00	24:00:00	2
+21515	Samir	INDU	Palod	00:00:00	24:00:00	2
+22916	Balaji Sayan	HTEXP	Pipodra	00:00:00	24:00:00	2
+22905	Dhara	INDU	Pipodra	00:00:00	24:00:00	2
+22906	Karanj	JGY	Pipodra	00:00:00	24:00:00	2
+22919	Krishna	INDU	Pipodra	00:00:00	24:00:00	2
+22922	Kuber	HTEXP	Pipodra	00:00:00	24:00:00	2
+22903	Madhav	INDU	Pipodra	00:00:00	24:00:00	2
+22912	Mansi	HTEXP	Pipodra	00:00:00	24:00:00	2
+22901	Nijanand	INDU	Pipodra	00:00:00	24:00:00	2
+22907	Pipodara	INDU	Pipodra	00:00:00	24:00:00	2
+22915	Prince	INDU	Pipodra	00:00:00	24:00:00	2
+22924	Rushikesh Ind	INDU	Pipodra	00:00:00	24:00:00	2
+22918	Shree Ram	INDU	Pipodra	00:00:00	24:00:00	2
+22920	Shyam	INDU	Pipodra	00:00:00	24:00:00	2
+22917	Sumilone-2	HTEXP	Pipodra	00:00:00	24:00:00	2
+22921	Vardhman	HTEXP	Pipodra	00:00:00	24:00:00	2
+22923	Vidhata	INDU	Pipodra	00:00:00	24:00:00	2
+310905	Ahura	INDU	Pipodra2	00:00:00	24:00:00	2
+310911	Bansari	INDU	Pipodra2	00:00:00	24:00:00	2
+310906	Ganesh	INDU	Pipodra2	00:00:00	24:00:00	2
+310910	General	INDU	Pipodra2	00:00:00	24:00:00	2
+310901	Karmeshwar	INDU	Pipodra2	00:00:00	24:00:00	2
+310903	Saburi	INDU	Pipodra2	00:00:00	24:00:00	2
+310912	Savitri	INDU	Pipodra2	00:00:00	24:00:00	2
+310908	Shri Om Ind	INDU	Pipodra2	00:00:00	24:00:00	2
+310902	Someshwar	INDU	Pipodra2	00:00:00	24:00:00	2
+310904	Tirupati	INDU	Pipodra2	00:00:00	24:00:00	2
+310909	Vraj Ind	INDU	Pipodra2	00:00:00	24:00:00	2`
+
+// Per-subdivision DAS login. Each subdivision is its own DAS account with
+// access to its own set of feeders (see masterScheduleRaw / pipodraScheduleRaw).
+var subdivisionCreds = map[string]struct{ Username, Password string }{
+	"Valod":   {"2127087", "Valod@123"},
+	"Pipodra": {"2130124", "Dgvcl@123"},
+}
+
 func init() {
-	for _, line := range strings.Split(masterScheduleRaw, "\n") {
+	loadMasterDB(masterScheduleRaw)
+	loadMasterDB(pipodraScheduleRaw)
+}
+
+func loadMasterDB(raw string) {
+	for _, line := range strings.Split(raw, "\n") {
 		cols := strings.Split(line, "\t")
 		if len(cols) >= 6 && strings.TrimSpace(cols[0]) != "" {
 			mw := "0.02"
@@ -457,6 +504,7 @@ func submitActivity(client *http.Client, adate string, rows []Row) (string, erro
 type RunScriptRequest struct {
 	Rows         []Row  `json:"rows"`
 	ActivityDate string `json:"activityDate"`
+	Subdivision  string `json:"subdivision"`
 }
 
 type RunScriptResponse struct {
@@ -512,17 +560,21 @@ func runScriptHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username := "2124087"
-	password := "Valod@123"
-	if username == "" || password == "" {
-		writeJSON(w, http.StatusInternalServerError, RunScriptResponse{Success: false, Message: "server credentials not configured"})
+	subdivision := req.Subdivision
+	if subdivision == "" {
+		subdivision = "Valod" // ponytail: default keeps old clients (no subdivision field) working
+	}
+	creds, ok := subdivisionCreds[subdivision]
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, RunScriptResponse{Success: false, Message: "unknown subdivision: " + subdivision})
 		return
 	}
+	username, password := creds.Username, creds.Password
 
 	// Each request gets its own HTTP client with its own cookie jar (session isolation)
 	httpClient := newHTTPClient()
 
-	log.Printf("Starting automation for date=%s rows=%d", req.ActivityDate, len(req.Rows))
+	log.Printf("Starting automation for date=%s rows=%d subdivision=%s username=%s", req.ActivityDate, len(req.Rows), subdivision, username)
 	for i, r := range req.Rows {
 		log.Printf("  row[%d]: Code=%q TT=%q SF=%q-%q ESD=%q-%q PSD=%q-%q",
 			i, r.Code, r.TT, r.SFStart, r.SFEnd, r.ESDStart, r.ESDEnd, r.PSDStart, r.PSDEnd)
