@@ -19,12 +19,12 @@
 
     <section class="panel">
       <h2>Add / Update Feeder Entry</h2>
-      <div>
+      <div class="pill-wrap">
         <p class="pill-label">Subdivision</p>
         <div id="subdivisionTabs" class="pills substation-tabs" role="tablist" aria-label="Subdivisions"></div>
       </div>
 
-      <div>
+      <div class="pill-wrap">
         <p class="pill-label">Substation</p>
         <div id="substationTabs" class="pills substation-tabs" role="tablist" aria-label="Substations"></div>
       </div>
@@ -90,40 +90,36 @@
       </details>
 
       <div class="actions">
-        <button id="generateBtn" class="primary">Generate Script</button>
-        <button id="runAutoBtn" class="accent">Run Automatically</button>
-        <button id="clearBtn" class="ghost">Clear Fields</button>
+        <button id="runAutoBtn" class="primary">Run Automatically</button>
+        <button id="generateBtn" class="ghost">Generate Script</button>
+        <button id="clearBtn" class="danger-link">Clear all entries</button>
       </div>
-      <p id="generateStatus" class="entry-meta">Tap Generate Script to auto-copy code.</p>
+      <p id="generateStatus" class="entry-meta" role="status"></p>
     </section>
 
-    <div id="warningOverlay" class="warning-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Duration warning">
-      <div class="warning-modal">
-        <h2>Warning: Long Duration</h2>
-        <p id="warningMessage" style="font-size:0.85rem;margin:0;"></p>
-        <ul id="warningList"></ul>
-        <div class="warning-actions">
-          <button id="warningCancel" class="ghost" type="button">Cancel</button>
-          <button id="warningContinue" class="primary" type="button">Continue Anyway</button>
-        </div>
-      </div>
-    </div>
+    <dialog id="warningDialog" class="warning-modal" closedby="any" aria-labelledby="warningTitle">
+      <h2 id="warningTitle">Warning: Long Duration</h2>
+      <p style="font-size:0.85rem;margin:0;">The following entries have SF or ESD duration exceeding 2 hours:</p>
+      <ul id="warningList"></ul>
+      <form method="dialog" class="warning-actions">
+        <button value="cancel" class="ghost">Cancel</button>
+        <button value="ok" class="primary">Continue Anyway</button>
+      </form>
+    </dialog>
 
-    <div id="summaryOverlay" class="summary-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Submission summary">
-      <div class="summary-modal">
-        <h2>Review Before Submitting</h2>
-        <div id="summaryContent"></div>
-        <div class="summary-actions">
-          <button id="summaryCancel" class="ghost" type="button">Cancel</button>
-          <button id="summaryConfirm" class="primary" type="button">Confirm & Submit</button>
-        </div>
-      </div>
-    </div>
+    <dialog id="summaryDialog" class="summary-modal" closedby="any" aria-labelledby="summaryTitle">
+      <h2 id="summaryTitle">Review Before Submitting</h2>
+      <div id="summaryContent"></div>
+      <form method="dialog" class="summary-actions">
+        <button value="cancel" class="ghost">Cancel</button>
+        <button value="ok" class="primary">Confirm & Submit</button>
+      </form>
+    </dialog>
   </main>
 
   <footer style="text-align:center;padding:1.5rem 0 2rem;font-size:0.75rem;color:var(--muted,#888);">Made by Satyam</footer>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 
 </html>

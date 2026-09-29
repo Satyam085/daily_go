@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-//go:embed index.html app.js styles.css
+//go:embed index.html app.js styles.css feeders.tsv
 var staticFiles embed.FS
 
 var baseURL = "http://das.dgvcl.in/DailyActivity"
@@ -33,120 +33,43 @@ var baseURL = "http://das.dgvcl.in/DailyActivity"
 // MASTER DB
 // ==========================================
 type FeederMaster struct {
-	Name  string
-	Type  string
-	Start string
-	End   string
-	MW    string
+	Name        string
+	Type        string
+	Start       string
+	End         string
+	MW          string
+	Subdivision string
 }
 
+// masterDB is loaded from feeders.tsv, the one feeder list shared with app.js.
+// Columns: code, name, type, substation, start, end, MW, subdivision.
 var masterDB = map[string]FeederMaster{}
 
-var masterScheduleRaw = `322707	Bahej	AG	Bhimpore	07:00:00	17:00:00	0.02
-322704	Bhimpore	JGY	Bhimpore	00:00:00	24:00:00	0.02
-322706	Hathuka	AG	Bhimpore	07:00:00	17:00:00	0.02
-322702	Hill	HTEX	Bhimpore	00:00:00	24:00:00	0.02
-322701	Khakhar	AG	Bhimpore	07:00:00	17:00:00	0.02
-322705	Kumbhiya	AG	Bhimpore	07:00:00	17:00:00	0.02
-322703	Ranveri	JGY	Bhimpore	00:00:00	24:00:00	0.02
-322708	Sankalp	HTEX	Bhimpore	00:00:00	24:00:00	0.02
-321106	Kamalchhod	AG	Borakhadi	06:00:00	16:00:00	0.02
-329801	Dhodhiya	AG	Degama	06:00:00	16:00:00	0.02
-329802	Kokanvad	AG	Degama	06:00:00	16:00:00	0.02
-329803	Madhuli	JGY	Degama	00:00:00	24:00:00	0.02
-532802	Andhatri	JGY	Godadha	00:00:00	24:00:00	0.02
-532804	Dharampura	AG	Godadha	06:00:00	16:00:00	0.02
-532803	Pahad	AG	Godadha	06:00:00	16:00:00	0.02
-532801	Patel	JGY	Godadha	00:00:00	24:00:00	0.02
-388705	Dungari	AG	Kelkui	06:00:00	16:00:00	0.02
-388703	Godaun	JGY	Kelkui	00:00:00	24:00:00	0.02
-388702	Nalotha	AG	Kelkui	06:00:00	16:00:00	0.02
-388701	Parshi	AG	Kelkui	06:00:00	16:00:00	0.02
-388704	Valmiki	JGY	Kelkui	00:00:00	24:00:00	0.02
-322205	Ambach	JGY	Rupvada	00:00:00	24:00:00	0.02
-322203	Degama	JGY	Rupvada	00:00:00	24:00:00	0.02
-322206	Gandhi	AGSKY	Rupvada	06:00:00	16:00:00	0.02
-322202	Khanpur	AGSKY	Rupvada	06:00:00	16:00:00	0.02
-322208	Tad	AG	Rupvada	06:00:00	16:00:00	0.02
-102503	Bajipura	AG	Valod	06:00:00	16:00:00	0.02
-102502	Bavli	AG	Valod	06:00:00	16:00:00	0.02
-102512	Butwada	JGY	Valod	00:00:00	24:00:00	0.02
-102515	Delwada	JGY	Valod	00:00:00	24:00:00	0.02
-102507	Nansad	AG	Valod	06:00:00	16:00:00	0.02
-102514	Pavran	AG	Valod	06:00:00	16:00:00	0.02
-102511	Rupvada	AG	Valod	06:00:00	16:00:00	0.02
-102508	Siker	AG	Valod	06:00:00	16:00:00	0.02
-102504	Sumul	JGY	Valod	00:00:00	24:00:00	0.02
-102513	Sumul Cattle	HTEX	Valod	00:00:00	24:00:00	0.02
-102509	Tokarva	AG	Valod	06:00:00	16:00:00	0.02
-102501	Valod (T)	JGY	Valod	00:00:00	24:00:00	0.02
-102506	Vedchhi	JGY	Valod	00:00:00	24:00:00	0.02
-140202	Buhari	JGY	Virpore	00:00:00	24:00:00	0.02
-140206	Dadariya	AG	Virpore	06:00:00	16:00:00	0.02
-140204	Virpur	AG	Virpore	06:00:00	16:00:00	0.02`
-
-var pipodraScheduleRaw = `171901	Radhe Feeder	INDU	Palod2	00:00:00	24:00:00	2
-171908	Silver	INDU	Palod2	00:00:00	24:00:00	2
-21501	Kim Char Rasta	INDU	Palod	00:00:00	24:00:00	2
-21516	Mahatma Ind	INDU	Palod	00:00:00	24:00:00	2
-21517	Panchdev Ind	INDU	Palod	00:00:00	24:00:00	2
-21514	Rajkamal	INDU	Palod	00:00:00	24:00:00	2
-21515	Samir	INDU	Palod	00:00:00	24:00:00	2
-22916	Balaji Sayan	HTEXP	Pipodra	00:00:00	24:00:00	2
-22905	Dhara	INDU	Pipodra	00:00:00	24:00:00	2
-22906	Karanj	JGY	Pipodra	00:00:00	24:00:00	2
-22919	Krishna	INDU	Pipodra	00:00:00	24:00:00	2
-22922	Kuber	HTEXP	Pipodra	00:00:00	24:00:00	2
-22903	Madhav	INDU	Pipodra	00:00:00	24:00:00	2
-22912	Mansi	HTEXP	Pipodra	00:00:00	24:00:00	2
-22901	Nijanand	INDU	Pipodra	00:00:00	24:00:00	2
-22907	Pipodara	INDU	Pipodra	00:00:00	24:00:00	2
-22915	Prince	INDU	Pipodra	00:00:00	24:00:00	2
-22924	Rushikesh Ind	INDU	Pipodra	00:00:00	24:00:00	2
-22918	Shree Ram	INDU	Pipodra	00:00:00	24:00:00	2
-22920	Shyam	INDU	Pipodra	00:00:00	24:00:00	2
-22917	Sumilone-2	HTEXP	Pipodra	00:00:00	24:00:00	2
-22921	Vardhman	HTEXP	Pipodra	00:00:00	24:00:00	2
-22923	Vidhata	INDU	Pipodra	00:00:00	24:00:00	2
-310905	Ahura	INDU	Pipodra2	00:00:00	24:00:00	2
-310911	Bansari	INDU	Pipodra2	00:00:00	24:00:00	2
-310906	Ganesh	INDU	Pipodra2	00:00:00	24:00:00	2
-310910	General	INDU	Pipodra2	00:00:00	24:00:00	2
-310901	Karmeshwar	INDU	Pipodra2	00:00:00	24:00:00	2
-310903	Saburi	INDU	Pipodra2	00:00:00	24:00:00	2
-310912	Savitri	INDU	Pipodra2	00:00:00	24:00:00	2
-310908	Shri Om Ind	INDU	Pipodra2	00:00:00	24:00:00	2
-310902	Someshwar	INDU	Pipodra2	00:00:00	24:00:00	2
-310904	Tirupati	INDU	Pipodra2	00:00:00	24:00:00	2
-310909	Vraj Ind	INDU	Pipodra2	00:00:00	24:00:00	2`
-
 // Per-subdivision DAS login. Each subdivision is its own DAS account with
-// access to its own set of feeders (see masterScheduleRaw / pipodraScheduleRaw).
+// access to its own set of feeders (see the subdivision column in feeders.tsv).
 var subdivisionCreds = map[string]struct{ Username, Password string }{
 	"Valod":   {"2127087", "Valod@123"},
 	"Pipodra": {"2130124", "Dgvcl@123"},
 }
 
 func init() {
-	loadMasterDB(masterScheduleRaw)
-	loadMasterDB(pipodraScheduleRaw)
+	raw, _ := staticFiles.ReadFile("feeders.tsv") // embedded at build time, can't be missing
+	loadMasterDB(string(raw))
 }
 
 func loadMasterDB(raw string) {
 	for _, line := range strings.Split(raw, "\n") {
 		cols := strings.Split(line, "\t")
-		if len(cols) >= 6 && strings.TrimSpace(cols[0]) != "" {
-			mw := "0.02"
-			if len(cols) >= 7 {
-				mw = strings.TrimSpace(cols[6])
-			}
-			masterDB[strings.TrimSpace(cols[0])] = FeederMaster{
-				Name:  cols[1],
-				Type:  cols[2],
-				Start: strings.TrimSpace(cols[4]),
-				End:   strings.TrimSpace(cols[5]),
-				MW:    mw,
-			}
+		if len(cols) < 8 || strings.TrimSpace(cols[0]) == "" {
+			continue
+		}
+		masterDB[strings.TrimSpace(cols[0])] = FeederMaster{
+			Name:        cols[1],
+			Type:        cols[2],
+			Start:       strings.TrimSpace(cols[4]),
+			End:         strings.TrimSpace(cols[5]),
+			MW:          strings.TrimSpace(cols[6]),
+			Subdivision: strings.TrimSpace(cols[7]),
 		}
 	}
 }
@@ -563,6 +486,13 @@ func runScriptHandler(w http.ResponseWriter, r *http.Request) {
 	subdivision := req.Subdivision
 	if subdivision == "" {
 		subdivision = "Valod" // ponytail: default keeps old clients (no subdivision field) working
+	}
+	// Each subdivision is its own DAS account: never file a feeder under another subdivision's login.
+	for _, row := range req.Rows {
+		if masterDB[row.Code].Subdivision != subdivision {
+			writeJSON(w, http.StatusBadRequest, RunScriptResponse{Success: false, Message: fmt.Sprintf("feeder %s is not in subdivision %s", row.Code, subdivision)})
+			return
+		}
 	}
 	creds, ok := subdivisionCreds[subdivision]
 	if !ok {

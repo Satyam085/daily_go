@@ -1,82 +1,12 @@
-const VALOD_SCHEDULE_TSV = `322707\tBahej\tAG\tBhimpore\t07:00:00\t17:00:00\t0.02
-322704\tBhimpore\tJGY\tBhimpore\t00:00:00\t24:00:00\t0.02
-322706\tHathuka\tAG\tBhimpore\t07:00:00\t17:00:00\t0.02
-322702\tHill\tHTEX\tBhimpore\t00:00:00\t24:00:00\t0.02
-322701\tKhakhar\tAG\tBhimpore\t07:00:00\t17:00:00\t0.02
-322705\tKumbhiya\tAG\tBhimpore\t07:00:00\t17:00:00\t0.02
-322703\tRanveri\tJGY\tBhimpore\t00:00:00\t24:00:00\t0.02
-322708\tSankalp\tHTEX\tBhimpore\t00:00:00\t24:00:00\t0.02
-321106\tKamalchhod\tAG\tBorakhadi\t06:00:00\t16:00:00\t0.02
-329801\tDhodhiya\tAG\tDegama\t06:00:00\t16:00:00\t0.02
-329802\tKokanvad\tAG\tDegama\t06:00:00\t16:00:00\t0.02
-329803\tMadhuli\tJGY\tDegama\t00:00:00\t24:00:00\t0.02
-532802\tAndhatri\tJGY\tGodadha\t00:00:00\t24:00:00\t0.02
-532804\tDharampura\tAG\tGodadha\t06:00:00\t16:00:00\t0.02
-532803\tPahad\tAG\tGodadha\t06:00:00\t16:00:00\t0.02
-532801\tPatel\tJGY\tGodadha\t00:00:00\t24:00:00\t0.02
-388705\tDungari\tAG\tKelkui\t06:00:00\t16:00:00\t0.02
-388703\tGodaun\tJGY\tKelkui\t00:00:00\t24:00:00\t0.02
-388702\tNalotha\tAG\tKelkui\t06:00:00\t16:00:00\t0.02
-388701\tParshi\tAG\tKelkui\t06:00:00\t16:00:00\t0.02
-388704\tValmiki\tJGY\tKelkui\t00:00:00\t24:00:00\t0.02
-322205\tAmbach\tJGY\tRupvada\t00:00:00\t24:00:00\t0.02
-322203\tDegama\tJGY\tRupvada\t00:00:00\t24:00:00\t0.02
-322206\tGandhi\tAGSKY\tRupvada\t06:00:00\t16:00:00\t0.02
-322202\tKhanpur\tAGSKY\tRupvada\t06:00:00\t16:00:00\t0.02
-322208\tTad\tAG\tRupvada\t06:00:00\t16:00:00\t0.02
-102503\tBajipura\tAG\tValod\t06:00:00\t16:00:00\t0.02
-102502\tBavli\tAG\tValod\t06:00:00\t16:00:00\t0.02
-102512\tButwada\tJGY\tValod\t00:00:00\t24:00:00\t0.02
-102515\tDelwada\tJGY\tValod\t00:00:00\t24:00:00\t0.02
-102507\tNansad\tAG\tValod\t06:00:00\t16:00:00\t0.02
-102514\tPavran\tAG\tValod\t06:00:00\t16:00:00\t0.02
-102511\tRupvada\tAG\tValod\t06:00:00\t16:00:00\t0.02
-102508\tSiker\tAG\tValod\t06:00:00\t16:00:00\t0.02
-102504\tSumul\tJGY\tValod\t00:00:00\t24:00:00\t0.02
-102513\tSumul Cattle\tHTEX\tValod\t00:00:00\t24:00:00\t0.02
-102509\tTokarva\tAG\tValod\t06:00:00\t16:00:00\t0.02
-102501\tValod (T)\tJGY\tValod\t00:00:00\t24:00:00\t0.02
-102506\tVedchhi\tJGY\tValod\t00:00:00\t24:00:00\t0.02
-140202\tBuhari\tJGY\tVirpore\t00:00:00\t24:00:00\t0.02
-140206\tDadariya\tAG\tVirpore\t06:00:00\t16:00:00\t0.02
-140204\tVirpur\tAG\tVirpore\t06:00:00\t16:00:00\t0.02`;
-
-const PIPODRA_SCHEDULE_TSV = `171901\tRadhe Feeder\tINDU\tPalod2\t00:00:00\t24:00:00\t2
-171908\tSilver\tINDU\tPalod2\t00:00:00\t24:00:00\t2
-21501\tKim Char Rasta\tINDU\tPalod\t00:00:00\t24:00:00\t2
-21516\tMahatma Ind\tINDU\tPalod\t00:00:00\t24:00:00\t2
-21517\tPanchdev Ind\tINDU\tPalod\t00:00:00\t24:00:00\t2
-21514\tRajkamal\tINDU\tPalod\t00:00:00\t24:00:00\t2
-21515\tSamir\tINDU\tPalod\t00:00:00\t24:00:00\t2
-22916\tBalaji Sayan\tHTEXP\tPipodra\t00:00:00\t24:00:00\t2
-22905\tDhara\tINDU\tPipodra\t00:00:00\t24:00:00\t2
-22906\tKaranj\tJGY\tPipodra\t00:00:00\t24:00:00\t2
-22919\tKrishna\tINDU\tPipodra\t00:00:00\t24:00:00\t2
-22922\tKuber\tHTEXP\tPipodra\t00:00:00\t24:00:00\t2
-22903\tMadhav\tINDU\tPipodra\t00:00:00\t24:00:00\t2
-22912\tMansi\tHTEXP\tPipodra\t00:00:00\t24:00:00\t2
-22901\tNijanand\tINDU\tPipodra\t00:00:00\t24:00:00\t2
-22907\tPipodara\tINDU\tPipodra\t00:00:00\t24:00:00\t2
-22915\tPrince\tINDU\tPipodra\t00:00:00\t24:00:00\t2
-22924\tRushikesh Ind\tINDU\tPipodra\t00:00:00\t24:00:00\t2
-22918\tShree Ram\tINDU\tPipodra\t00:00:00\t24:00:00\t2
-22920\tShyam\tINDU\tPipodra\t00:00:00\t24:00:00\t2
-22917\tSumilone-2\tHTEXP\tPipodra\t00:00:00\t24:00:00\t2
-22921\tVardhman\tHTEXP\tPipodra\t00:00:00\t24:00:00\t2
-22923\tVidhata\tINDU\tPipodra\t00:00:00\t24:00:00\t2
-310905\tAhura\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
-310911\tBansari\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
-310906\tGanesh\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
-310910\tGeneral\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
-310901\tKarmeshwar\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
-310903\tSaburi\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
-310912\tSavitri\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
-310908\tShri Om Ind\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
-310902\tSomeshwar\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
-310904\tTirupati\tINDU\tPipodra2\t00:00:00\t24:00:00\t2
-310909\tVraj Ind\tINDU\tPipodra2\t00:00:00\t24:00:00\t2`;
-
-const SUBDIVISIONS = { Valod: VALOD_SCHEDULE_TSV, Pipodra: PIPODRA_SCHEDULE_TSV };
+// One feeder list shared with the Go server (feeders.tsv).
+// Columns: code, feeder, category, substation, start, end, MW, subdivision.
+const FEEDERS_TSV = await fetch("feeders.tsv").then((r) => r.text()); // ponytail: served by the same binary as this page, no offline fallback
+const SUBDIVISIONS = {}; // subdivision -> its TSV lines
+FEEDERS_TSV.trim().split("\n").forEach((line) => {
+  const name = (line.split("\t")[7] || "").trim();
+  if (name) SUBDIVISIONS[name] = SUBDIVISIONS[name] ? `${SUBDIVISIONS[name]}\n${line}` : line;
+});
+const ALL_FEEDER_CODES = new Set(parseMaster(FEEDERS_TSV).map((f) => f.code));
 
 function parseMaster(tsv) {
   return tsv
@@ -153,12 +83,12 @@ function getTodayLocalDate() {
 
 function loadSessionStateForToday() {
   try {
-    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
     if (parsed.date !== getTodayLocalDate()) {
-      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      localStorage.removeItem(SESSION_STORAGE_KEY);
       return null;
     }
     return parsed;
@@ -180,7 +110,7 @@ function persistSessionState() {
       selectedFeederCode,
       entries: byCode,
     };
-    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(snapshot));
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(snapshot));
   } catch (err) {
     // Ignore storage exceptions.
   }
@@ -197,7 +127,7 @@ function hydrateSessionState() {
   const restoredEntries = snapshot.entries;
   if (restoredEntries && typeof restoredEntries === "object") {
     Object.keys(restoredEntries).forEach((code) => {
-      if (feederByCode[code]) {
+      if (ALL_FEEDER_CODES.has(code)) { // keep other subdivisions' entries, not just the active one
         const entry = restoredEntries[code];
         // Migration to multiple SFs/ESDs
         if (!entry.SFs && (entry["SF Start"] || entry["SF End"] || entry["SF Reason"])) {
@@ -395,7 +325,7 @@ function createSfRow(start = "", end = "", reason = "") {
     <div class="reason-container">
       <label class="reason-field">
         SF Reason
-        <input type="text" class="sf-reason" placeholder="Reason" value="${reason}">
+        <input type="text" class="sf-reason" placeholder="Reason">
       </label>
       <button type="button" class="remove-btn" aria-label="Remove SF">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
@@ -416,6 +346,7 @@ function createSfRow(start = "", end = "", reason = "") {
     runSoftValidation();
   });
 
+  row.querySelector(".sf-reason").value = reason; // as a property: a quote inside value="" would cut the text off
   el.sfList.appendChild(row);
 }
 
@@ -434,7 +365,7 @@ function createEsdRow(start = "", end = "", reason = "") {
     <div class="reason-container">
       <label class="reason-field">
         ESD Reason
-        <input type="text" class="esd-reason" placeholder="Reason" value="${reason}">
+        <input type="text" class="esd-reason" placeholder="Reason">
       </label>
       <button type="button" class="remove-btn" aria-label="Remove ESD">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
@@ -455,6 +386,7 @@ function createEsdRow(start = "", end = "", reason = "") {
     runSoftValidation();
   });
 
+  row.querySelector(".esd-reason").value = reason; // as a property: a quote inside value="" would cut the text off
   el.esdList.appendChild(row);
 }
 
@@ -975,11 +907,13 @@ function formatDuration(start, end) {
   return `${m}m`;
 }
 
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
 function formatEventCell(start, end, reason) {
   if (!start && !end) return "-";
   const timeStr = `${toHHMM(start)} - ${toHHMM(end)}`;
   const duration = formatDuration(start, end);
-  const reasonStr = reason ? `<br><small style="color:var(--muted)">${reason}</small>` : "";
+  const reasonStr = reason ? `<br><small style="color:var(--muted)">${esc(reason)}</small>` : "";
   return `<strong>${timeStr}</strong> <small>(${duration})</small>${reasonStr}`;
 }
 
@@ -995,7 +929,7 @@ function buildSummaryHTML(rows) {
     if (row.TT) {
       ttCell = `<strong>${row.TT}</strong>`;
       if (row["TT Reason"]) {
-        ttCell += `<br><small style="color:var(--muted)">${row["TT Reason"]}</small>`;
+        ttCell += `<br><small style="color:var(--muted)">${esc(row["TT Reason"])}</small>`;
       }
     }
 
@@ -1132,44 +1066,19 @@ function toMinutes(t) {
   return p[0] * 60 + (p[1] || 0);
 }
 
-// Show warning modal and return promise<boolean>
+// Opens a modal <dialog>; resolves true only when its "ok" button closed it (Escape, Cancel, backdrop = false).
+// Every way out resolves the promise, so no stale Confirm handler is left behind.
+function ask(dialog) {
+  dialog.returnValue = "";
+  dialog.showModal();
+  return new Promise((resolve) =>
+    dialog.addEventListener("close", () => resolve(dialog.returnValue === "ok"), { once: true }),
+  );
+}
+
 function showDurationWarning(warnings) {
-  const overlay = document.getElementById("warningOverlay");
-  const list = document.getElementById("warningList");
-  const msg = document.getElementById("warningMessage");
-
-  msg.textContent =
-    "The following entries have SF or ESD duration exceeding 2 hours:";
-  list.innerHTML = warnings.map((w) => `<li>${w}</li>`).join("");
-  overlay.style.display = "flex";
-
-  return new Promise((resolve) => {
-    const continueBtn = document.getElementById("warningContinue");
-    const cancelBtn = document.getElementById("warningCancel");
-    function cleanup() {
-      continueBtn.removeEventListener("click", onContinue);
-      cancelBtn.removeEventListener("click", onCancel);
-      overlay.removeEventListener("click", onOverlayClick);
-      overlay.style.display = "none";
-    }
-    function onContinue() {
-      cleanup();
-      resolve(true);
-    }
-    function onCancel() {
-      cleanup();
-      resolve(false);
-    }
-    function onOverlayClick(e) {
-      if (e.target === overlay) {
-        cleanup();
-        resolve(false);
-      }
-    }
-    continueBtn.addEventListener("click", onContinue);
-    cancelBtn.addEventListener("click", onCancel);
-    overlay.addEventListener("click", onOverlayClick);
-  });
+  document.getElementById("warningList").innerHTML = warnings.map((w) => `<li>${w}</li>`).join("");
+  return ask(document.getElementById("warningDialog"));
 }
 
 // P8: Debounce bumped from 180ms to 500ms
@@ -1221,6 +1130,7 @@ el.feederPills.addEventListener("click", (e) => {
 });
 
 el.clearBtn.addEventListener("click", () => {
+  if (!confirm("Clear the entries for every feeder? This can't be undone.")) return;
   clearFormFields();
   entries.clear();
   renderFeederPills();
@@ -1348,40 +1258,8 @@ if (runAutoBtn) {
     }
 
     // Show summary modal for review
-    const overlay = document.getElementById("summaryOverlay");
-    const content = document.getElementById("summaryContent");
-    content.innerHTML = buildSummaryHTML(rows);
-    overlay.style.display = "flex";
-
-    const confirmed = await new Promise((resolve) => {
-      const confirmBtn = document.getElementById("summaryConfirm");
-      const cancelBtn = document.getElementById("summaryCancel");
-      function cleanup() {
-        confirmBtn.removeEventListener("click", onConfirm);
-        cancelBtn.removeEventListener("click", onCancel);
-        overlay.removeEventListener("click", onOverlayClick);
-        overlay.style.display = "none";
-      }
-      function onConfirm() {
-        cleanup();
-        resolve(true);
-      }
-      function onCancel() {
-        cleanup();
-        resolve(false);
-      }
-      function onOverlayClick(e) {
-        if (e.target === overlay) {
-          cleanup();
-          resolve(false);
-        }
-      }
-      confirmBtn.addEventListener("click", onConfirm);
-      cancelBtn.addEventListener("click", onCancel);
-      overlay.addEventListener("click", onOverlayClick);
-    });
-
-    if (!confirmed) {
+    document.getElementById("summaryContent").innerHTML = buildSummaryHTML(rows);
+    if (!(await ask(document.getElementById("summaryDialog")))) {
       setStatus("Submission cancelled.", "info");
       return;
     }
@@ -1410,19 +1288,8 @@ if (activityDateInput) {
 
 // U10: Keyboard shortcuts
 document.addEventListener("keydown", (e) => {
-  // Escape: close summary modal
-  if (e.key === "Escape") {
-    const warningOverlay = document.getElementById("warningOverlay");
-    if (warningOverlay && warningOverlay.style.display !== "none") {
-      document.getElementById("warningCancel").click();
-      return;
-    }
-    const overlay = document.getElementById("summaryOverlay");
-    if (overlay && overlay.style.display !== "none") {
-      overlay.style.display = "none";
-    }
-    return;
-  }
+  // An open popup owns the keyboard (Escape there = Cancel); shortcuts must not start a second run behind it.
+  if (document.querySelector("dialog[open]")) return;
 
   // Alt+G: Generate script
   if (e.altKey && e.key === "g") {
