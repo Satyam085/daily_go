@@ -73,7 +73,7 @@
 
       <details>
         <summary>PSD</summary>
-        <div class="grid two">
+        <div class="dynamic-row">
           <label>
             PSD Start
             <input id="psdStart" type="time">
@@ -82,11 +82,13 @@
             PSD End
             <input id="psdEnd" type="time">
           </label>
+          <div class="reason-container">
+            <label class="reason-field">
+              PSD Reason
+              <input id="psdReason" type="text" placeholder="Reason">
+            </label>
+          </div>
         </div>
-        <label>
-          PSD Reason
-          <input id="psdReason" type="text" placeholder="Reason">
-        </label>
       </details>
 
       <div class="actions">
